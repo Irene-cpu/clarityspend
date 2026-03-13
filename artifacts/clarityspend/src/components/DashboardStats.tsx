@@ -202,35 +202,63 @@ export function DashboardStats() {
       <AnimatePresence>
         {(isWarning || isOverBudget) && (
           <motion.div
-            key="warning-banner"
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            key={isOverBudget ? 'over-budget-banner' : 'warning-banner'}
+            initial={{ opacity: 0, y: -10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: -10, scale: 0.97 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
           >
-            <div className={`flex items-start gap-3 rounded-2xl border px-5 py-4 ${
+            <div className={`relative overflow-hidden rounded-2xl border-2 px-5 py-4 ${
               isOverBudget
-                ? 'bg-red-50 border-red-200'
-                : 'bg-orange-50 border-orange-200'
+                ? 'bg-red-50 border-red-300'
+                : 'bg-orange-50 border-orange-300'
             }`}>
-              <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${
-                isOverBudget ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
-              }`}>
-                {isOverBudget
-                  ? <AlertCircle className="w-4 h-4" />
-                  : <AlertTriangle className="w-4 h-4" />
-                }
-              </div>
-              <div>
-                <p className={`text-sm font-bold ${isOverBudget ? 'text-red-800' : 'text-orange-800'}`}>
-                  {isOverBudget ? 'Budget exceeded!' : 'Heads up — you\'re close to your limit'}
-                </p>
-                <p className={`text-sm mt-0.5 ${isOverBudget ? 'text-red-700' : 'text-orange-700'}`}>
-                  {isOverBudget
-                    ? `You've gone ${formatRM(Math.abs(remaining))} over your monthly budget. Consider reviewing your expenses.`
-                    : `You've used ${percentageUsed.toFixed(1)}% of your budget. Only ${formatRM(remaining)} remains — spend carefully.`
-                  }
-                </p>
+              {/* Decorative left bar */}
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${isOverBudget ? 'bg-red-500' : 'bg-orange-500'}`} />
+
+              <div className="flex items-start gap-3 pl-2">
+                {/* Pulsing icon */}
+                <div className="relative shrink-0 mt-0.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    isOverBudget ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
+                  }`}>
+                    {isOverBudget
+                      ? <AlertCircle className="w-5 h-5" />
+                      : <AlertTriangle className="w-5 h-5" />
+                    }
+                  </div>
+                  {/* Pulse ring */}
+                  <motion.div
+                    animate={{ scale: [1, 1.6], opacity: [0.5, 0] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
+                    className={`absolute inset-0 rounded-xl ${isOverBudget ? 'bg-red-400' : 'bg-orange-400'}`}
+                    style={{ zIndex: -1 }}
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold leading-snug ${isOverBudget ? 'text-red-800' : 'text-orange-800'}`}>
+                    {isOverBudget
+                      ? 'Warning: You have exceeded your monthly budget!'
+                      : 'Warning: You have used more than 80% of your monthly budget.'
+                    }
+                  </p>
+                  <p className={`text-xs mt-1 leading-relaxed ${isOverBudget ? 'text-red-600' : 'text-orange-600'}`}>
+                    {isOverBudget
+                      ? `You're ${formatRM(Math.abs(remaining))} over your limit. Review your expenses to get back on track.`
+                      : `${percentageUsed.toFixed(1)}% used · ${formatRM(remaining)} remaining out of ${formatRM(budget ?? 0)}.`
+                    }
+                  </p>
+                </div>
+
+                {/* Usage pill */}
+                <span className={`shrink-0 self-start text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 ${
+                  isOverBudget
+                    ? 'bg-red-200 text-red-800'
+                    : 'bg-orange-200 text-orange-800'
+                }`}>
+                  {percentageUsed.toFixed(0)}%
+                </span>
               </div>
             </div>
           </motion.div>
