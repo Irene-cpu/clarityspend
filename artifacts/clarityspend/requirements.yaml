@@ -1,0 +1,16 @@
+packages:
+  "zustand": "State management with built-in localStorage persistence"
+  "framer-motion": "Smooth animations for progress bars and list items"
+  "date-fns": "Easy date formatting for expense history"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge tailwind classes without conflicts"
+  "lucide-react": "Beautiful vector icons"
+
+images:
+  - path: "artifacts/clarityspend/public/images/hero-bg.png"
+    description: "Ultra minimal abstract background, soft glowing gradients in pure white, very subtle emerald green and mint green, clean, modern, depth"
+    aspect_ratio: "16:9"
+
+notes:
+  - Entire application is purely client-side using localStorage via Zustand persist middleware.
+  - No external backend API required.
