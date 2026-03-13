@@ -107,22 +107,37 @@ export function DashboardStats() {
   const clampedPct = Math.min(percentageUsed, 100);
 
   const isOverBudget = remaining < 0;
+
+  // Progress bar colour thresholds: green <60%, orange 60–90%, red ≥90%
+  const barLevel: 'green' | 'orange' | 'red' =
+    percentageUsed >= 90 || isOverBudget ? 'red'
+    : percentageUsed >= 60 ? 'orange'
+    : 'green';
+
+  // Warning banner still triggers at 80% (prior feature)
   const isWarning = !isOverBudget && percentageUsed >= 80;
-  const isHealthy = !isOverBudget && !isWarning;
 
-  const remainingScheme = isOverBudget ? 'red' : isWarning ? 'orange' : 'green';
+  const remainingScheme = isOverBudget ? 'red' : barLevel === 'red' ? 'red' : barLevel === 'orange' ? 'orange' : 'green';
 
-  const progressColor = isOverBudget
-    ? 'bg-red-500'
-    : isWarning
-    ? 'bg-orange-400'
+  const progressColor =
+    barLevel === 'red'    ? 'bg-red-500'
+    : barLevel === 'orange' ? 'bg-orange-400'
     : 'bg-emerald-500';
 
-  const progressTrack = isOverBudget
-    ? 'bg-red-100'
-    : isWarning
-    ? 'bg-orange-100'
+  const progressTrack =
+    barLevel === 'red'    ? 'bg-red-100'
+    : barLevel === 'orange' ? 'bg-orange-100'
     : 'bg-emerald-100';
+
+  const pctTextColor =
+    barLevel === 'red'    ? 'text-red-600'
+    : barLevel === 'orange' ? 'text-orange-500'
+    : 'text-emerald-600';
+
+  const statusTextColor =
+    barLevel === 'red'    ? 'text-red-600'
+    : barLevel === 'orange' ? 'text-orange-500'
+    : 'text-emerald-600';
 
   if (budget === null) return null;
 
@@ -223,9 +238,7 @@ export function DashboardStats() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.2 }}
-                  className={`text-2xl font-bold tabular-nums transition-colors duration-300 ${
-                    isOverBudget ? 'text-red-600' : isWarning ? 'text-orange-500' : 'text-emerald-600'
-                  }`}
+                  className={`text-2xl font-bold tabular-nums transition-colors duration-300 ${pctTextColor}`}
                 >
                   {clampedPct.toFixed(1)}%
                 </motion.span>
@@ -239,43 +252,50 @@ export function DashboardStats() {
                 transition={{ duration: 0.8, ease: 'easeOut' }}
                 className={`h-full rounded-full transition-colors duration-500 ${progressColor}`}
               />
-              {/* 80% marker */}
-              <div
-                className="absolute top-0 bottom-0 w-px bg-black/20"
-                style={{ left: '80%' }}
-              />
+              {/* 60% threshold marker */}
+              <div className="absolute top-0 bottom-0 w-px bg-black/20" style={{ left: '60%' }} />
+              {/* 90% threshold marker */}
+              <div className="absolute top-0 bottom-0 w-px bg-black/20" style={{ left: '90%' }} />
             </div>
 
-            {/* Scale labels */}
-            <div className="flex justify-between mt-2">
-              <span className="text-xs text-muted-foreground">RM 0</span>
-              <span
-                className="text-xs text-muted-foreground absolute"
-                style={{ left: `calc(80% - 10px)`, position: 'relative' }}
-              >
-                <span className="absolute -translate-x-1/2 -top-0 text-xs text-orange-400 font-medium whitespace-nowrap">
-                  80%
-                </span>
-              </span>
-              <span className="text-xs text-muted-foreground">{formatRM(budget)}</span>
+            {/* Scale labels with threshold annotations */}
+            <div className="relative mt-2 h-4">
+              <span className="absolute left-0 text-xs text-muted-foreground">RM 0</span>
+              <span className="absolute text-xs font-semibold text-emerald-500 whitespace-nowrap -translate-x-1/2" style={{ left: '60%' }}>60%</span>
+              <span className="absolute text-xs font-semibold text-red-400 whitespace-nowrap -translate-x-1/2" style={{ left: '90%' }}>90%</span>
+              <span className="absolute right-0 text-xs text-muted-foreground">{formatRM(budget)}</span>
             </div>
 
-            {/* Status line */}
-            <div className={`mt-4 flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${
-              isOverBudget ? 'text-red-600' : isWarning ? 'text-orange-500' : 'text-emerald-600'
-            }`}>
-              {isOverBudget
-                ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                : isWarning
-                ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              }
-              {isOverBudget
-                ? `Over budget by ${formatRM(Math.abs(remaining))}`
-                : isWarning
-                ? `${(100 - percentageUsed).toFixed(1)}% of budget remaining — watch your spending`
-                : `You're within budget. ${formatRM(remaining)} left to spend.`
-              }
+            {/* Colour legend */}
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/60">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-xs text-muted-foreground">Under 60%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" />
+                <span className="text-xs text-muted-foreground">60–90%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                <span className="text-xs text-muted-foreground">Over 90%</span>
+              </div>
+              <div className={`ml-auto flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${statusTextColor}`}>
+                {barLevel === 'red'
+                  ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  : barLevel === 'orange'
+                  ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                }
+                {isOverBudget
+                  ? `Over budget by ${formatRM(Math.abs(remaining))}`
+                  : barLevel === 'red'
+                  ? `${(100 - percentageUsed).toFixed(1)}% left — high spending`
+                  : barLevel === 'orange'
+                  ? `${(100 - percentageUsed).toFixed(1)}% remaining`
+                  : `${formatRM(remaining)} left to spend`
+                }
+              </div>
             </div>
           </CardContent>
         </Card>
