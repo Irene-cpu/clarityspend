@@ -2,7 +2,7 @@ import React from 'react';
 import { useSpendStore } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { Wallet, TrendingDown, PiggyBank, AlertCircle, CheckCircle2, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Wallet, TrendingDown, PiggyBank, AlertCircle, CheckCircle2, TrendingUp, AlertTriangle, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function StatCard({
@@ -17,7 +17,7 @@ function StatCard({
   label: string;
   value: string;
   subtext?: string;
-  colorScheme: 'blue' | 'amber' | 'green' | 'orange' | 'red';
+  colorScheme: 'blue' | 'amber' | 'green' | 'orange' | 'red' | 'violet';
   delay?: number;
 }) {
   const schemes = {
@@ -34,6 +34,13 @@ function StatCard({
       value: 'text-foreground',
       subtext: 'text-muted-foreground',
       accent: 'bg-amber-500',
+    },
+    violet: {
+      card: 'bg-white',
+      icon: 'bg-violet-50 text-violet-600',
+      value: 'text-foreground',
+      subtext: 'text-muted-foreground',
+      accent: 'bg-violet-500',
     },
     green: {
       card: 'bg-emerald-50 border-emerald-200',
@@ -103,6 +110,9 @@ export function DashboardStats() {
 
   const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const remaining = (budget ?? 0) - totalSpent;
+  const todayStr = new Date().toDateString();
+  const todayExpenses = expenses.filter(e => new Date(e.date).toDateString() === todayStr);
+  const todaySpent = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
   const percentageUsed = budget ? (totalSpent / budget) * 100 : 0;
   const clampedPct = Math.min(percentageUsed, 100);
 
@@ -143,7 +153,7 @@ export function DashboardStats() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={<Wallet className="w-5 h-5" />}
           label="Monthly Budget"
@@ -173,6 +183,18 @@ export function DashboardStats() {
           }
           colorScheme={remainingScheme}
           delay={0.1}
+        />
+        <StatCard
+          icon={<CalendarDays className="w-5 h-5" />}
+          label="Today's Spending"
+          value={formatRM(todaySpent)}
+          subtext={
+            todayExpenses.length === 0
+              ? 'No expenses today'
+              : `${todayExpenses.length} ${todayExpenses.length === 1 ? 'expense' : 'expenses'} today`
+          }
+          colorScheme="violet"
+          delay={0.15}
         />
       </div>
 
