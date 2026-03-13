@@ -4,6 +4,7 @@ import { DashboardStats } from '@/components/DashboardStats';
 import { AddExpense } from '@/components/AddExpense';
 import { ExpenseHistory } from '@/components/ExpenseHistory';
 import { DecisionAssistant } from '@/components/DecisionAssistant';
+import { SpendingChart } from '@/components/SpendingChart';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -61,7 +62,8 @@ export default function Home() {
           className="space-y-8"
         >
           <DashboardStats />
-          
+          <SpendingChart />
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-7 space-y-8">
               <AddExpense />
