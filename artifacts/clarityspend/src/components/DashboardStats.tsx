@@ -2,7 +2,7 @@ import React from 'react';
 import { useSpendStore } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { Wallet, TrendingDown, PiggyBank, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Wallet, TrendingDown, PiggyBank, AlertCircle, CheckCircle2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function StatCard({
@@ -107,16 +107,10 @@ export function DashboardStats() {
   const clampedPct = Math.min(percentageUsed, 100);
 
   const isOverBudget = remaining < 0;
-  const isWarning = !isOverBudget && percentageUsed >= 75;
+  const isWarning = !isOverBudget && percentageUsed >= 80;
   const isHealthy = !isOverBudget && !isWarning;
 
   const remainingScheme = isOverBudget ? 'red' : isWarning ? 'orange' : 'green';
-
-  const statusMessage = isOverBudget
-    ? `Over budget by ${formatRM(Math.abs(remaining))}`
-    : isWarning
-    ? `${(100 - percentageUsed).toFixed(1)}% of budget left — watch your spending`
-    : `You're within budget. Keep it up!`;
 
   const progressColor = isOverBudget
     ? 'bg-red-500'
@@ -167,6 +161,46 @@ export function DashboardStats() {
         />
       </div>
 
+      {/* Warning banner — shown at ≥80% */}
+      <AnimatePresence>
+        {(isWarning || isOverBudget) && (
+          <motion.div
+            key="warning-banner"
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <div className={`flex items-start gap-3 rounded-2xl border px-5 py-4 ${
+              isOverBudget
+                ? 'bg-red-50 border-red-200'
+                : 'bg-orange-50 border-orange-200'
+            }`}>
+              <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${
+                isOverBudget ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
+              }`}>
+                {isOverBudget
+                  ? <AlertCircle className="w-4 h-4" />
+                  : <AlertTriangle className="w-4 h-4" />
+                }
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${isOverBudget ? 'text-red-800' : 'text-orange-800'}`}>
+                  {isOverBudget ? 'Budget exceeded!' : 'Heads up — you\'re close to your limit'}
+                </p>
+                <p className={`text-sm mt-0.5 ${isOverBudget ? 'text-red-700' : 'text-orange-700'}`}>
+                  {isOverBudget
+                    ? `You've gone ${formatRM(Math.abs(remaining))} over your monthly budget. Consider reviewing your expenses.`
+                    : `You've used ${percentageUsed.toFixed(1)}% of your budget. Only ${formatRM(remaining)} remains — spend carefully.`
+                  }
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Progress bar card */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -174,39 +208,74 @@ export function DashboardStats() {
       >
         <Card className="overflow-hidden bg-white">
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {isOverBudget ? (
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                ) : isWarning ? (
-                  <TrendingUp className="w-4 h-4 text-orange-500 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                )}
-                <p className={`text-sm font-medium transition-colors duration-300 ${
-                  isOverBudget ? 'text-red-700' : isWarning ? 'text-orange-700' : 'text-emerald-700'
-                }`}>
-                  {statusMessage}
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Monthly Budget Usage</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {formatRM(totalSpent)} spent of {formatRM(budget)}
                 </p>
               </div>
-              <span className={`text-sm font-bold tabular-nums transition-colors duration-300 ${
-                isOverBudget ? 'text-red-600' : isWarning ? 'text-orange-600' : 'text-emerald-600'
-              }`}>
-                {clampedPct.toFixed(1)}%
-              </span>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={clampedPct.toFixed(1)}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.2 }}
+                  className={`text-2xl font-bold tabular-nums transition-colors duration-300 ${
+                    isOverBudget ? 'text-red-600' : isWarning ? 'text-orange-500' : 'text-emerald-600'
+                  }`}
+                >
+                  {clampedPct.toFixed(1)}%
+                </motion.span>
+              </AnimatePresence>
             </div>
 
-            <div className={`h-3 w-full rounded-full overflow-hidden transition-colors duration-500 ${progressTrack}`}>
+            {/* Track */}
+            <div className={`relative h-5 w-full rounded-full overflow-hidden transition-colors duration-500 ${progressTrack}`}>
               <motion.div
                 animate={{ width: `${clampedPct}%` }}
-                transition={{ duration: 0.7, ease: 'easeOut' }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
                 className={`h-full rounded-full transition-colors duration-500 ${progressColor}`}
+              />
+              {/* 80% marker */}
+              <div
+                className="absolute top-0 bottom-0 w-px bg-black/20"
+                style={{ left: '80%' }}
               />
             </div>
 
+            {/* Scale labels */}
             <div className="flex justify-between mt-2">
               <span className="text-xs text-muted-foreground">RM 0</span>
+              <span
+                className="text-xs text-muted-foreground absolute"
+                style={{ left: `calc(80% - 10px)`, position: 'relative' }}
+              >
+                <span className="absolute -translate-x-1/2 -top-0 text-xs text-orange-400 font-medium whitespace-nowrap">
+                  80%
+                </span>
+              </span>
               <span className="text-xs text-muted-foreground">{formatRM(budget)}</span>
+            </div>
+
+            {/* Status line */}
+            <div className={`mt-4 flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${
+              isOverBudget ? 'text-red-600' : isWarning ? 'text-orange-500' : 'text-emerald-600'
+            }`}>
+              {isOverBudget
+                ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                : isWarning
+                ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              }
+              {isOverBudget
+                ? `Over budget by ${formatRM(Math.abs(remaining))}`
+                : isWarning
+                ? `${(100 - percentageUsed).toFixed(1)}% of budget remaining — watch your spending`
+                : `You're within budget. ${formatRM(remaining)} left to spend.`
+              }
             </div>
           </CardContent>
         </Card>
