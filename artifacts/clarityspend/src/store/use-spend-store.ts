@@ -17,14 +17,16 @@ export interface BnplItem {
   totalAmount: number;
   installments: number;
   monthlyPayment: number;
-  dueDate?: string;
+  /** Day of month (1–28) the installment is due each month */
+  dayOfMonth?: number;
 }
 
 export interface Commitment {
   id: string;
   name: string;
   amount: number;
-  dueDate?: string;
+  /** Day of month (1–28) the commitment is due each month */
+  dayOfMonth?: number;
 }
 
 interface SpendState {
@@ -54,11 +56,7 @@ export const useSpendStore = create<SpendState>()(
 
       addExpense: (expense) => set((state) => ({
         expenses: [
-          {
-            ...expense,
-            id: crypto.randomUUID(),
-            date: new Date().toISOString(),
-          },
+          { ...expense, id: crypto.randomUUID(), date: new Date().toISOString() },
           ...state.expenses,
         ],
       })),
@@ -95,8 +93,6 @@ export const useSpendStore = create<SpendState>()(
         commitments: state.commitments.filter((c) => c.id !== id),
       })),
     }),
-    {
-      name: 'clarityspend-storage',
-    }
+    { name: 'clarityspend-storage' }
   )
 );

@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+
+function ordinal(n: number) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
 
 export function BnplTracker() {
   const { budget, bnplItems, addBnplItem, removeBnplItem } = useSpendStore();
@@ -14,7 +19,7 @@ export function BnplTracker() {
   const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [installments, setInstallments] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dayOfMonth, setDayOfMonth] = useState('');
   const [error, setError] = useState('');
 
   const totalMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
@@ -31,14 +36,18 @@ export function BnplTracker() {
     setError('');
     const t = parseFloat(totalAmount);
     const n = parseInt(installments, 10);
+    const day = dayOfMonth ? parseInt(dayOfMonth, 10) : undefined;
     if (!name.trim()) { setError('Please enter an item name.'); return; }
     if (isNaN(t) || t <= 0) { setError('Enter a valid total amount.'); return; }
     if (isNaN(n) || n < 1 || n > 120) { setError('Installments must be between 1 and 120 months.'); return; }
-    addBnplItem({ name: name.trim(), totalAmount: t, installments: n, dueDate: dueDate || undefined });
+    if (day !== undefined && (isNaN(day) || day < 1 || day > 28)) {
+      setError('Due day must be between 1 and 28.'); return;
+    }
+    addBnplItem({ name: name.trim(), totalAmount: t, installments: n, dayOfMonth: day });
     setName('');
     setTotalAmount('');
     setInstallments('');
-    setDueDate('');
+    setDayOfMonth('');
   };
 
   const budgetWarning = budget !== null && totalMonthly > budget * 0.5;
@@ -55,12 +64,12 @@ export function BnplTracker() {
           <h2 className="text-lg font-bold text-foreground">BNPL Tracker</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Track Buy Now, Pay Later plans and see how they affect your monthly budget.
+          Track Buy Now, Pay Later plans. Set a due day so upcoming payments are tracked automatically.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Item Name</label>
               <Input
                 placeholder="e.g. MacBook Air"
@@ -94,11 +103,17 @@ export function BnplTracker() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block text-foreground">Next Due Date <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <label className="text-sm font-medium mb-1.5 block text-foreground">
+                Due Day <span className="text-muted-foreground font-normal">(optional, 1–28)</span>
+              </label>
               <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                type="number"
+                placeholder="e.g. 5, 15, 25"
+                min="1"
+                max="28"
+                step="1"
+                value={dayOfMonth}
+                onChange={(e) => { setDayOfMonth(e.target.value); setError(''); }}
               />
             </div>
           </div>
@@ -161,8 +176,8 @@ export function BnplTracker() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          {item.dueDate
-                            ? <><CalendarDays className="w-3 h-3" />{format(parseISO(item.dueDate), 'd MMM yyyy')}</>
+                          {item.dayOfMonth
+                            ? <><CalendarDays className="w-3 h-3 shrink-0" />Due every {ordinal(item.dayOfMonth)} · {item.installments} months</>
                             : `${formatRM(item.totalAmount)} total · ${item.installments} months`
                           }
                         </p>
