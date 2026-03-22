@@ -72,13 +72,14 @@ const levelConfig: Record<ResultLevel, {
 };
 
 export function DecisionAssistant() {
-  const { budget, expenses } = useSpendStore();
+  const { budget, expenses, bnplItems } = useSpendStore();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [result, setResult] = useState<EvalResult | null>(null);
 
   const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const remaining = (budget ?? 0) - totalSpent;
+  const totalBnplMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
+  const remaining = (budget ?? 0) - totalSpent - totalBnplMonthly;
   const noBudget = budget === null;
 
   const evaluate = (e: React.FormEvent) => {
@@ -195,19 +196,24 @@ export function DecisionAssistant() {
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Budget used after purchase</span>
                         <span className={`font-semibold ${cfg.text}`}>
-                          {budget ? Math.min(((totalSpent + parseFloat(price)) / budget) * 100, 100).toFixed(1) : 0}%
+                          {budget ? Math.min(((totalSpent + totalBnplMonthly + parseFloat(price)) / budget) * 100, 100).toFixed(1) : 0}%
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-black/5 overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{
-                            width: `${budget ? Math.min(((totalSpent + parseFloat(price)) / budget) * 100, 100) : 0}%`,
+                            width: `${budget ? Math.min(((totalSpent + totalBnplMonthly + parseFloat(price)) / budget) * 100, 100) : 0}%`,
                           }}
                           transition={{ duration: 0.6, ease: 'easeOut' }}
                           className={`h-full rounded-full ${cfg.bar}`}
                         />
                       </div>
+                      {totalBnplMonthly > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Includes {formatRM(totalBnplMonthly)}/mo in BNPL commitments
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

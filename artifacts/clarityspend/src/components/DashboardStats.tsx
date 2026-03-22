@@ -106,17 +106,19 @@ function StatCard({
 }
 
 export function DashboardStats() {
-  const { budget, expenses } = useSpendStore();
+  const { budget, expenses, bnplItems } = useSpendStore();
 
   const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalBnplMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const remaining = (budget ?? 0) - totalSpent;
+  const effectiveRemaining = remaining - totalBnplMonthly;
   const todayStr = new Date().toDateString();
   const todayExpenses = expenses.filter(e => new Date(e.date).toDateString() === todayStr);
   const todaySpent = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const percentageUsed = budget ? (totalSpent / budget) * 100 : 0;
+  const percentageUsed = budget ? ((totalSpent + totalBnplMonthly) / budget) * 100 : 0;
   const clampedPct = Math.min(percentageUsed, 100);
 
-  const isOverBudget = remaining < 0;
+  const isOverBudget = effectiveRemaining < 0;
 
   // Progress bar colour thresholds: green <60%, orange 60–90%, red ≥90%
   const barLevel: 'green' | 'orange' | 'red' =
@@ -173,10 +175,12 @@ export function DashboardStats() {
         <StatCard
           icon={<PiggyBank className="w-5 h-5" />}
           label={isOverBudget ? 'Over Budget By' : 'Remaining Budget'}
-          value={formatRM(Math.abs(remaining))}
+          value={formatRM(Math.abs(effectiveRemaining))}
           subtext={
             isOverBudget
               ? 'You have exceeded your limit'
+              : totalBnplMonthly > 0
+              ? `After expenses & BNPL (${formatRM(totalBnplMonthly)}/mo)`
               : isWarning
               ? 'Approaching your limit'
               : 'Available to spend'
