@@ -151,7 +151,50 @@ export function DashboardStats() {
     : barLevel === 'orange' ? 'text-orange-500'
     : 'text-emerald-600';
 
-  if (budget === null) return null;
+  if (budget === null) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatCard
+            icon={<TrendingDown className="w-5 h-5" />}
+            label="Total Spent This Month"
+            value={formatRM(totalSpent)}
+            subtext={expenses.length === 0 ? 'No expenses logged yet' : `Across ${expenses.length} ${expenses.length === 1 ? 'expense' : 'expenses'}`}
+            colorScheme="amber"
+            delay={0}
+          />
+          <StatCard
+            icon={<CalendarDays className="w-5 h-5" />}
+            label="Today's Spending"
+            value={formatRM(todaySpent)}
+            subtext={
+              todayExpenses.length === 0
+                ? 'No expenses today'
+                : `${todayExpenses.length} ${todayExpenses.length === 1 ? 'expense' : 'expenses'} today`
+            }
+            colorScheme="violet"
+            delay={0.05}
+          />
+        </div>
+        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-blue-50 border border-blue-200">
+          <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+            <Wallet className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-blue-800">No monthly budget set</p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              You can track expenses freely. Set a monthly budget above to unlock spending limits, progress tracking, and budget warnings.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <div className="space-y-5">

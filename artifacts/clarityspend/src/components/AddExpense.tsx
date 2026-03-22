@@ -28,8 +28,6 @@ export function AddExpense() {
     }
   };
 
-  const disabled = budget === null;
-
   return (
     <Card className="border-none shadow-md shadow-black/5">
       <CardHeader>
@@ -47,7 +45,6 @@ export function AddExpense() {
                 placeholder="e.g. Grab Food"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                disabled={disabled}
               />
             </div>
             
@@ -60,7 +57,6 @@ export function AddExpense() {
                 onChange={(e) => setAmount(e.target.value)}
                 icon={<span className="font-bold text-foreground">RM</span>}
                 className="pl-14"
-                disabled={disabled}
               />
             </div>
             
@@ -73,8 +69,7 @@ export function AddExpense() {
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                  disabled={disabled}
-                  className="w-full h-12 rounded-xl border-2 border-border bg-white px-4 pl-11 py-2 text-sm text-foreground shadow-sm transition-colors focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:opacity-50 appearance-none cursor-pointer"
+                  className="w-full h-12 rounded-xl border-2 border-border bg-white px-4 pl-11 py-2 text-sm text-foreground shadow-sm transition-colors focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 appearance-none cursor-pointer"
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -88,15 +83,15 @@ export function AddExpense() {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={disabled || !name.trim() || !amount || isNaN(parseFloat(amount))}
+            disabled={!name.trim() || !amount || isNaN(parseFloat(amount))}
           >
             <Plus className="w-5 h-5 mr-2" />
             Add Expense
           </Button>
           
-          {disabled && (
+          {budget === null && (
             <p className="text-sm text-muted-foreground text-center mt-2">
-              Please set a budget first to log expenses.
+              Tip: Set a monthly budget above to track your spending limits.
             </p>
           )}
         </form>
