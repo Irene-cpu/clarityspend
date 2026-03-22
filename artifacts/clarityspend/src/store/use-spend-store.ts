@@ -17,12 +17,14 @@ export interface BnplItem {
   totalAmount: number;
   installments: number;
   monthlyPayment: number;
+  dueDate?: string;
 }
 
 export interface Commitment {
   id: string;
   name: string;
   amount: number;
+  dueDate?: string;
 }
 
 interface SpendState {

@@ -4,8 +4,9 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Landmark, Trash2, Plus } from 'lucide-react';
+import { Landmark, Trash2, Plus, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format, parseISO } from 'date-fns';
 
 const COMMITMENT_SUGGESTIONS = ['Rent', 'Credit Card', 'Insurance', 'Car Loan', 'Utilities', 'Internet', 'Gym'];
 
@@ -14,6 +15,7 @@ export function MonthlyCommitments() {
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
 
   const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
@@ -25,9 +27,10 @@ export function MonthlyCommitments() {
     const amt = parseFloat(amount);
     if (!name.trim()) { setError('Please enter a commitment name.'); return; }
     if (isNaN(amt) || amt <= 0) { setError('Please enter a valid amount.'); return; }
-    addCommitment({ name: name.trim(), amount: amt });
+    addCommitment({ name: name.trim(), amount: amt, dueDate: dueDate || undefined });
     setName('');
     setAmount('');
+    setDueDate('');
   };
 
   return (
@@ -35,7 +38,6 @@ export function MonthlyCommitments() {
       <div className="h-1 w-full bg-teal-400" />
       <CardContent className="p-6">
 
-        {/* Header */}
         <div className="flex items-center gap-2.5 mb-1">
           <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
             <Landmark className="w-4 h-4" />
@@ -46,7 +48,6 @@ export function MonthlyCommitments() {
           Fixed recurring payments deducted from your available money each month.
         </p>
 
-        {/* Quick-fill suggestions */}
         <div className="flex flex-wrap gap-1.5 mb-4">
           {COMMITMENT_SUGGESTIONS.map((s) => (
             <button
@@ -60,9 +61,8 @@ export function MonthlyCommitments() {
           ))}
         </div>
 
-        {/* Add form */}
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">Commitment Name</label>
               <Input
@@ -84,6 +84,14 @@ export function MonthlyCommitments() {
                 className="pl-14"
               />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block text-foreground">Due Date <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -98,7 +106,6 @@ export function MonthlyCommitments() {
           </Button>
         </form>
 
-        {/* List */}
         <AnimatePresence>
           {commitments.length > 0 && (
             <motion.div
@@ -126,7 +133,12 @@ export function MonthlyCommitments() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Fixed monthly payment</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          {c.dueDate
+                            ? <><CalendarDays className="w-3 h-3" />{format(parseISO(c.dueDate), 'd MMM yyyy')}</>
+                            : 'No due date set'
+                          }
+                        </p>
                       </div>
                       <p className="text-sm font-bold text-teal-700 shrink-0">
                         {formatRM(c.amount)}<span className="text-xs font-normal text-muted-foreground">/mo</span>
@@ -143,11 +155,8 @@ export function MonthlyCommitments() {
                 </AnimatePresence>
               </div>
 
-              {/* Total summary bar */}
               <div className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 ${
-                budgetWarning
-                  ? 'bg-orange-50 border-orange-200'
-                  : 'bg-teal-50 border-teal-200'
+                budgetWarning ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'
               }`}>
                 <div>
                   <p className={`text-sm font-bold ${budgetWarning ? 'text-orange-800' : 'text-teal-800'}`}>

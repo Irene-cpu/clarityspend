@@ -4,8 +4,9 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CreditCard, Trash2, Plus, CalendarClock } from 'lucide-react';
+import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format, parseISO } from 'date-fns';
 
 export function BnplTracker() {
   const { budget, bnplItems, addBnplItem, removeBnplItem } = useSpendStore();
@@ -13,6 +14,7 @@ export function BnplTracker() {
   const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [installments, setInstallments] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
 
   const totalMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
@@ -20,9 +22,7 @@ export function BnplTracker() {
   const monthlyPreview = (() => {
     const t = parseFloat(totalAmount);
     const n = parseInt(installments, 10);
-    if (!isNaN(t) && t > 0 && !isNaN(n) && n >= 1) {
-      return t / n;
-    }
+    if (!isNaN(t) && t > 0 && !isNaN(n) && n >= 1) return t / n;
     return null;
   })();
 
@@ -34,10 +34,11 @@ export function BnplTracker() {
     if (!name.trim()) { setError('Please enter an item name.'); return; }
     if (isNaN(t) || t <= 0) { setError('Enter a valid total amount.'); return; }
     if (isNaN(n) || n < 1 || n > 120) { setError('Installments must be between 1 and 120 months.'); return; }
-    addBnplItem({ name: name.trim(), totalAmount: t, installments: n });
+    addBnplItem({ name: name.trim(), totalAmount: t, installments: n, dueDate: dueDate || undefined });
     setName('');
     setTotalAmount('');
     setInstallments('');
+    setDueDate('');
   };
 
   const budgetWarning = budget !== null && totalMonthly > budget * 0.5;
@@ -47,7 +48,6 @@ export function BnplTracker() {
       <div className="h-1 w-full bg-sky-400" />
       <CardContent className="p-6">
 
-        {/* Header */}
         <div className="flex items-center gap-2.5 mb-1">
           <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
             <CreditCard className="w-4 h-4" />
@@ -58,10 +58,9 @@ export function BnplTracker() {
           Track Buy Now, Pay Later plans and see how they affect your monthly budget.
         </p>
 
-        {/* Add form */}
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">Item Name</label>
               <Input
                 placeholder="e.g. MacBook Air"
@@ -94,9 +93,16 @@ export function BnplTracker() {
                 onChange={(e) => { setInstallments(e.target.value); setError(''); }}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block text-foreground">Next Due Date <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
           </div>
 
-          {/* Monthly preview */}
           <AnimatePresence>
             {monthlyPreview !== null && (
               <motion.div
@@ -115,9 +121,7 @@ export function BnplTracker() {
             )}
           </AnimatePresence>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <Button
             type="submit"
@@ -129,7 +133,6 @@ export function BnplTracker() {
           </Button>
         </form>
 
-        {/* List */}
         <AnimatePresence>
           {bnplItems.length > 0 && (
             <motion.div
@@ -137,11 +140,9 @@ export function BnplTracker() {
               animate={{ opacity: 1 }}
               className="mt-6 space-y-3"
             >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">
-                  Active Plans <span className="text-muted-foreground font-normal">({bnplItems.length})</span>
-                </p>
-              </div>
+              <p className="text-sm font-semibold text-foreground">
+                Active Plans <span className="text-muted-foreground font-normal">({bnplItems.length})</span>
+              </p>
 
               <div className="space-y-2">
                 <AnimatePresence>
@@ -159,8 +160,11 @@ export function BnplTracker() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatRM(item.totalAmount)} total · {item.installments} months
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          {item.dueDate
+                            ? <><CalendarDays className="w-3 h-3" />{format(parseISO(item.dueDate), 'd MMM yyyy')}</>
+                            : `${formatRM(item.totalAmount)} total · ${item.installments} months`
+                          }
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -178,11 +182,8 @@ export function BnplTracker() {
                 </AnimatePresence>
               </div>
 
-              {/* Total commitment summary */}
               <div className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 ${
-                budgetWarning
-                  ? 'bg-orange-50 border-orange-200'
-                  : 'bg-sky-50 border-sky-200'
+                budgetWarning ? 'bg-orange-50 border-orange-200' : 'bg-sky-50 border-sky-200'
               }`}>
                 <div>
                   <p className={`text-sm font-bold ${budgetWarning ? 'text-orange-800' : 'text-sky-800'}`}>
