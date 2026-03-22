@@ -72,14 +72,15 @@ const levelConfig: Record<ResultLevel, {
 };
 
 export function DecisionAssistant() {
-  const { budget, expenses, bnplItems } = useSpendStore();
+  const { budget, expenses, bnplItems, commitments } = useSpendStore();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [result, setResult] = useState<EvalResult | null>(null);
 
   const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalBnplMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
-  const remaining = (budget ?? 0) - totalSpent - totalBnplMonthly;
+  const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
+  const remaining = (budget ?? 0) - totalSpent - totalBnplMonthly - totalCommitments;
   const noBudget = budget === null;
 
   const evaluate = (e: React.FormEvent) => {
@@ -209,9 +210,9 @@ export function DecisionAssistant() {
                           className={`h-full rounded-full ${cfg.bar}`}
                         />
                       </div>
-                      {totalBnplMonthly > 0 && (
+                      {(totalBnplMonthly > 0 || totalCommitments > 0) && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Includes {formatRM(totalBnplMonthly)}/mo in BNPL commitments
+                          Includes {formatRM(totalBnplMonthly + totalCommitments)}/mo in commitments & BNPL
                         </p>
                       )}
                     </div>

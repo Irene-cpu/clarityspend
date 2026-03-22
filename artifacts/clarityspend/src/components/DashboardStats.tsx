@@ -106,16 +106,17 @@ function StatCard({
 }
 
 export function DashboardStats() {
-  const { budget, expenses, bnplItems } = useSpendStore();
+  const { budget, expenses, bnplItems, commitments } = useSpendStore();
 
   const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const totalBnplMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
+  const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
   const remaining = (budget ?? 0) - totalSpent;
-  const effectiveRemaining = remaining - totalBnplMonthly;
+  const effectiveRemaining = remaining - totalBnplMonthly - totalCommitments;
   const todayStr = new Date().toDateString();
   const todayExpenses = expenses.filter(e => new Date(e.date).toDateString() === todayStr);
   const todaySpent = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const percentageUsed = budget ? ((totalSpent + totalBnplMonthly) / budget) * 100 : 0;
+  const percentageUsed = budget ? ((totalSpent + totalBnplMonthly + totalCommitments) / budget) * 100 : 0;
   const clampedPct = Math.min(percentageUsed, 100);
 
   const isOverBudget = effectiveRemaining < 0;
@@ -217,16 +218,16 @@ export function DashboardStats() {
         />
         <StatCard
           icon={<PiggyBank className="w-5 h-5" />}
-          label={isOverBudget ? 'Over Budget By' : 'Remaining Budget'}
+          label={isOverBudget ? 'Over Budget By' : 'Available Money'}
           value={formatRM(Math.abs(effectiveRemaining))}
           subtext={
             isOverBudget
-              ? 'You have exceeded your limit'
-              : totalBnplMonthly > 0
-              ? `After expenses & BNPL (${formatRM(totalBnplMonthly)}/mo)`
+              ? 'Budget, commitments & expenses exceeded'
+              : (totalCommitments > 0 || totalBnplMonthly > 0)
+              ? `After expenses, commitments & BNPL`
               : isWarning
               ? 'Approaching your limit'
-              : 'Available to spend'
+              : 'Budget minus all spending'
           }
           colorScheme={remainingScheme}
           delay={0.1}
@@ -385,12 +386,12 @@ export function DashboardStats() {
                   : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 }
                 {isOverBudget
-                  ? `Over budget by ${formatRM(Math.abs(remaining))}`
+                  ? `Over by ${formatRM(Math.abs(effectiveRemaining))}`
                   : barLevel === 'red'
                   ? `${(100 - percentageUsed).toFixed(1)}% left — high spending`
                   : barLevel === 'orange'
                   ? `${(100 - percentageUsed).toFixed(1)}% remaining`
-                  : `${formatRM(remaining)} left to spend`
+                  : `${formatRM(effectiveRemaining)} available`
                 }
               </div>
             </div>

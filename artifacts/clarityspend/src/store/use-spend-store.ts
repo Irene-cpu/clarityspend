@@ -19,16 +19,25 @@ export interface BnplItem {
   monthlyPayment: number;
 }
 
+export interface Commitment {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 interface SpendState {
   budget: number | null;
   expenses: Expense[];
   bnplItems: BnplItem[];
+  commitments: Commitment[];
   setBudget: (amount: number) => void;
   addExpense: (expense: Omit<Expense, 'id' | 'date'>) => void;
   removeExpense: (id: string) => void;
   clearExpenses: () => void;
   addBnplItem: (item: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
   removeBnplItem: (id: string) => void;
+  addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
+  removeCommitment: (id: string) => void;
 }
 
 export const useSpendStore = create<SpendState>()(
@@ -37,6 +46,7 @@ export const useSpendStore = create<SpendState>()(
       budget: null,
       expenses: [],
       bnplItems: [],
+      commitments: [],
 
       setBudget: (amount) => set({ budget: amount }),
 
@@ -70,6 +80,17 @@ export const useSpendStore = create<SpendState>()(
 
       removeBnplItem: (id) => set((state) => ({
         bnplItems: state.bnplItems.filter((b) => b.id !== id),
+      })),
+
+      addCommitment: (commitment) => set((state) => ({
+        commitments: [
+          { ...commitment, id: crypto.randomUUID() },
+          ...state.commitments,
+        ],
+      })),
+
+      removeCommitment: (id) => set((state) => ({
+        commitments: state.commitments.filter((c) => c.id !== id),
       })),
     }),
     {
