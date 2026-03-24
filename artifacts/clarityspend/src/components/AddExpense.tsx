@@ -4,27 +4,40 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Tag, Receipt } from 'lucide-react';
+import { format } from 'date-fns';
 
 const CATEGORIES: ExpenseCategory[] = ['Food', 'Transportation', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+
+function todayStr() {
+  return format(new Date(), 'yyyy-MM-dd');
+}
 
 export function AddExpense() {
   const { addExpense, budget } = useSpendStore();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('Food');
+  const [date, setDate] = useState(todayStr());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseFloat(amount);
     if (name.trim() && !isNaN(val) && val > 0) {
+      const isToday = date === todayStr();
+      const isoDate = isToday
+        ? new Date().toISOString()
+        : new Date(date + 'T12:00:00').toISOString();
+
       addExpense({
         name: name.trim(),
         amount: val,
         category,
+        date: isoDate,
       });
       setName('');
       setAmount('');
       setCategory('Food');
+      setDate(todayStr());
     }
   };
 
@@ -39,7 +52,7 @@ export function AddExpense() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-5">
+            <div className="md:col-span-4">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Expense Name</label>
               <Input
                 placeholder="e.g. Grab Food"
@@ -47,8 +60,8 @@ export function AddExpense() {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
-            
-            <div className="md:col-span-3">
+
+            <div className="md:col-span-2">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Amount</label>
               <Input
                 type="number"
@@ -59,8 +72,8 @@ export function AddExpense() {
                 className="pl-14"
               />
             </div>
-            
-            <div className="md:col-span-4">
+
+            <div className="md:col-span-3">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Category</label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
@@ -78,17 +91,27 @@ export function AddExpense() {
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none border-l-transparent border-r-transparent border-t-foreground border-l-[5px] border-r-[5px] border-t-[5px]" />
               </div>
             </div>
+
+            <div className="md:col-span-3">
+              <label className="text-sm font-medium mb-1.5 block text-foreground">Date</label>
+              <Input
+                type="date"
+                value={date}
+                max={todayStr()}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
           </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full" 
+
+          <Button
+            type="submit"
+            className="w-full"
             disabled={!name.trim() || !amount || isNaN(parseFloat(amount))}
           >
             <Plus className="w-5 h-5 mr-2" />
             Add Expense
           </Button>
-          
+
           {budget === null && (
             <p className="text-sm text-muted-foreground text-center mt-2">
               Tip: Set a monthly budget above to track your spending limits.

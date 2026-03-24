@@ -35,7 +35,7 @@ interface SpendState {
   bnplItems: BnplItem[];
   commitments: Commitment[];
   setBudget: (amount: number) => void;
-  addExpense: (expense: Omit<Expense, 'id' | 'date'>) => void;
+  addExpense: (expense: Omit<Expense, 'id'>) => void;
   removeExpense: (id: string) => void;
   clearExpenses: () => void;
   addBnplItem: (item: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
@@ -56,7 +56,7 @@ export const useSpendStore = create<SpendState>()(
 
       addExpense: (expense) => set((state) => ({
         expenses: [
-          { ...expense, id: crypto.randomUUID(), date: new Date().toISOString() },
+          { ...expense, id: crypto.randomUUID() },
           ...state.expenses,
         ],
       })),
