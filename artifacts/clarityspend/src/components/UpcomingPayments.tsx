@@ -2,37 +2,27 @@ import React, { useState } from 'react';
 import { useSpendStore } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { CalendarClock, Landmark, CreditCard, ChevronDown } from 'lucide-react';
+import { CalendarClock, Landmark, CreditCard, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, startOfDay, differenceInCalendarDays, addMonths } from 'date-fns';
+import { format, parseISO, differenceInCalendarDays, startOfDay } from 'date-fns';
 
 interface PaymentEntry {
   id: string;
   name: string;
   amount: number;
-  nextDueDate: Date;
+  dueDate: string;
   daysUntil: number;
   type: 'commitment' | 'bnpl';
   frequency: string;
 }
 
-/**
- * Given a dayOfMonth, returns the next upcoming date (today or later).
- * If that day has already passed this month, returns next month's date.
- */
-function getNextDueDate(dayOfMonth: number): Date {
-  const today = startOfDay(new Date());
-  const candidate = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-  if (candidate >= today) return candidate;
-  return addMonths(candidate, 1);
-}
-
 function urgencyStyle(daysUntil: number) {
-  if (daysUntil === 0)  return { badge: 'bg-red-100 text-red-700 border-red-200',    row: 'border-red-200 bg-red-50/50',      label: 'Due today' };
-  if (daysUntil === 1)  return { badge: 'bg-orange-100 text-orange-700 border-orange-200', row: 'border-orange-200 bg-orange-50/50', label: 'Tomorrow' };
-  if (daysUntil <= 3)   return { badge: 'bg-orange-100 text-orange-700 border-orange-200', row: 'border-orange-100 bg-orange-50/30', label: `In ${daysUntil} days` };
-  if (daysUntil <= 7)   return { badge: 'bg-amber-100 text-amber-700 border-amber-200',   row: 'border-slate-100 bg-slate-50',     label: `In ${daysUntil} days` };
-  return                         { badge: 'bg-slate-100 text-slate-600 border-slate-200',  row: 'border-slate-100 bg-slate-50',     label: `In ${daysUntil} days` };
+  if (daysUntil < 0)   return { badge: 'bg-red-100 text-red-700 border-red-200',         row: 'border-red-200 bg-red-50/50',       label: 'Overdue' };
+  if (daysUntil === 0) return { badge: 'bg-red-100 text-red-700 border-red-200',          row: 'border-red-200 bg-red-50/50',       label: 'Due today' };
+  if (daysUntil === 1) return { badge: 'bg-orange-100 text-orange-700 border-orange-200', row: 'border-orange-200 bg-orange-50/50', label: 'Tomorrow' };
+  if (daysUntil <= 3)  return { badge: 'bg-orange-100 text-orange-700 border-orange-200', row: 'border-orange-100 bg-orange-50/30', label: `In ${daysUntil} days` };
+  if (daysUntil <= 7)  return { badge: 'bg-amber-100 text-amber-700 border-amber-200',    row: 'border-slate-100 bg-slate-50',      label: `In ${daysUntil} days` };
+  return                        { badge: 'bg-slate-100 text-slate-600 border-slate-200',   row: 'border-slate-100 bg-slate-50',      label: `In ${daysUntil} days` };
 }
 
 const WINDOW_OPTIONS = [7, 14] as const;
@@ -43,44 +33,43 @@ export function UpcomingPayments() {
 
   const today = startOfDay(new Date());
 
-  const entries: PaymentEntry[] = [
+  const allEntries: PaymentEntry[] = [
     ...commitments
-      .filter((c) => c.dayOfMonth !== undefined)
-      .map((c) => {
-        const nextDueDate = getNextDueDate(c.dayOfMonth!);
-        return {
-          id: c.id,
-          name: c.name,
-          amount: c.amount,
-          nextDueDate,
-          daysUntil: differenceInCalendarDays(nextDueDate, today),
-          type: 'commitment' as const,
-          frequency: 'Monthly commitment',
-        };
-      }),
+      .filter((c) => !!c.dueDate)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        amount: c.amount,
+        dueDate: c.dueDate!,
+        daysUntil: differenceInCalendarDays(startOfDay(parseISO(c.dueDate!)), today),
+        type: 'commitment' as const,
+        frequency: 'Monthly commitment',
+      })),
     ...bnplItems
-      .filter((b) => b.dayOfMonth !== undefined)
-      .map((b) => {
-        const nextDueDate = getNextDueDate(b.dayOfMonth!);
-        return {
-          id: b.id,
-          name: b.name,
-          amount: b.monthlyPayment,
-          nextDueDate,
-          daysUntil: differenceInCalendarDays(nextDueDate, today),
-          type: 'bnpl' as const,
-          frequency: `BNPL · ${b.installments} months`,
-        };
-      }),
-  ]
-    .filter((e) => e.daysUntil >= 0 && e.daysUntil <= window)
-    .sort((a, b) => a.daysUntil - b.daysUntil);
+      .filter((b) => !!b.dueDate)
+      .map((b) => ({
+        id: b.id,
+        name: b.name,
+        amount: b.monthlyPayment,
+        dueDate: b.dueDate!,
+        daysUntil: differenceInCalendarDays(startOfDay(parseISO(b.dueDate!)), today),
+        type: 'bnpl' as const,
+        frequency: `BNPL · ${b.installments} months`,
+      })),
+  ].sort((a, b) => a.daysUntil - b.daysUntil);
 
-  const sevenDayEntries = entries.filter((e) => e.daysUntil <= 7);
+  const entries = allEntries.filter((e) => e.daysUntil <= window);
+
+  const overdueEntries   = entries.filter((e) => e.daysUntil < 0);
+  const upcomingEntries  = entries.filter((e) => e.daysUntil >= 0);
+  const sevenDayEntries  = entries.filter((e) => e.daysUntil >= 0 && e.daysUntil <= 7);
+
+  const overdueTotal    = overdueEntries.reduce((sum, e) => sum + e.amount, 0);
+  const windowTotal     = upcomingEntries.reduce((sum, e) => sum + e.amount, 0);
   const sevenDayTotal   = sevenDayEntries.reduce((sum, e) => sum + e.amount, 0);
-  const windowTotal     = entries.reduce((sum, e) => sum + e.amount, 0);
 
-  const hasItems = commitments.some((c) => c.dayOfMonth) || bnplItems.some((b) => b.dayOfMonth);
+  const hasItems  = commitments.some((c) => c.dueDate) || bnplItems.some((b) => b.dueDate);
+  const hasDue    = entries.length > 0;
 
   return (
     <Card className="overflow-hidden bg-white">
@@ -113,27 +102,29 @@ export function UpcomingPayments() {
           </div>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Auto-generated from your commitments and BNPL plans with due days set.
+          Auto-generated from your commitments and BNPL plans, sorted by nearest due date.
         </p>
 
         {/* Summary totals */}
         <AnimatePresence>
-          {entries.length > 0 && (
+          {hasDue && (
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`grid gap-3 mb-5 ${sevenDayEntries.length > 0 && window === 14 ? 'grid-cols-2' : 'grid-cols-1'}`}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5"
             >
-              <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-indigo-50 border-2 border-indigo-200">
-                <div>
-                  <p className="text-sm font-bold text-indigo-800">Upcoming Payments Total</p>
-                  <p className="text-xs text-indigo-600 mt-0.5">
-                    {entries.length} payment{entries.length > 1 ? 's' : ''} due within {window} days
-                  </p>
+              {upcomingEntries.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-indigo-50 border-2 border-indigo-200">
+                  <div>
+                    <p className="text-sm font-bold text-indigo-800">Upcoming Total</p>
+                    <p className="text-xs text-indigo-600 mt-0.5">
+                      {upcomingEntries.length} payment{upcomingEntries.length > 1 ? 's' : ''} due within {window} days
+                    </p>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums text-indigo-700">{formatRM(windowTotal)}</p>
                 </div>
-                <p className="text-xl font-bold tabular-nums text-indigo-700">{formatRM(windowTotal)}</p>
-              </div>
-              {sevenDayEntries.length > 0 && window === 14 && (
+              )}
+              {window === 14 && sevenDayEntries.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-amber-50 border-2 border-amber-200">
                   <div>
                     <p className="text-sm font-bold text-amber-800">Next 7 Days</p>
@@ -144,11 +135,24 @@ export function UpcomingPayments() {
                   <p className="text-xl font-bold tabular-nums text-amber-700">{formatRM(sevenDayTotal)}</p>
                 </div>
               )}
+              {overdueEntries.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-red-50 border-2 border-red-200">
+                  <div>
+                    <p className="text-sm font-bold text-red-800 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5" />Overdue
+                    </p>
+                    <p className="text-xs text-red-600 mt-0.5">
+                      {overdueEntries.length} payment{overdueEntries.length > 1 ? 's' : ''} past due date
+                    </p>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums text-red-700">{formatRM(overdueTotal)}</p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Empty state — no items with due days */}
+        {/* Empty state — no due dates set at all */}
         {!hasItems && (
           <div className="text-center py-10">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-300 flex items-center justify-center mx-auto mb-3">
@@ -156,13 +160,13 @@ export function UpcomingPayments() {
             </div>
             <p className="text-sm font-medium text-muted-foreground">No upcoming payments</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-              Set a "Due Day" on any commitment or BNPL plan and upcoming payments will appear here automatically.
+              Set a due date on any commitment or BNPL plan and it will appear here automatically.
             </p>
           </div>
         )}
 
-        {/* Has items with due days but none in the current window */}
-        {hasItems && entries.length === 0 && (
+        {/* Has due dates but nothing in current window */}
+        {hasItems && !hasDue && (
           <div className="text-center py-8">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-400 flex items-center justify-center mx-auto mb-3">
               <CalendarClock className="w-5 h-5" />
@@ -199,7 +203,7 @@ export function UpcomingPayments() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{entry.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(entry.nextDueDate, 'EEE, d MMM yyyy')} · {entry.frequency}
+                        {format(parseISO(entry.dueDate), 'EEE, d MMM yyyy')} · {entry.frequency}
                       </p>
                     </div>
 

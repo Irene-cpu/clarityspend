@@ -6,21 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Landmark, Trash2, Plus, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format, parseISO } from 'date-fns';
 
 const COMMITMENT_SUGGESTIONS = ['Rent', 'Credit Card', 'Insurance', 'Car Loan', 'Utilities', 'Internet', 'Gym'];
-
-function ordinal(n: number) {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
-}
 
 export function MonthlyCommitments() {
   const { budget, commitments, addCommitment, removeCommitment } = useSpendStore();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
-  const [dayOfMonth, setDayOfMonth] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
 
   const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
@@ -30,16 +25,12 @@ export function MonthlyCommitments() {
     e.preventDefault();
     setError('');
     const amt = parseFloat(amount);
-    const day = dayOfMonth ? parseInt(dayOfMonth, 10) : undefined;
     if (!name.trim()) { setError('Please enter a commitment name.'); return; }
     if (isNaN(amt) || amt <= 0) { setError('Please enter a valid amount.'); return; }
-    if (day !== undefined && (isNaN(day) || day < 1 || day > 28)) {
-      setError('Due day must be between 1 and 28.'); return;
-    }
-    addCommitment({ name: name.trim(), amount: amt, dayOfMonth: day });
+    addCommitment({ name: name.trim(), amount: amt, dueDate: dueDate || undefined });
     setName('');
     setAmount('');
-    setDayOfMonth('');
+    setDueDate('');
   };
 
   return (
@@ -54,7 +45,7 @@ export function MonthlyCommitments() {
           <h2 className="text-lg font-bold text-foreground">Monthly Commitments</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Fixed recurring payments. Set a due day so upcoming payments are tracked automatically.
+          Fixed recurring payments. Set a due date so upcoming payments are tracked automatically.
         </p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -95,16 +86,12 @@ export function MonthlyCommitments() {
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">
-                Due Day <span className="text-muted-foreground font-normal">(optional, 1–28)</span>
+                Due Date <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <Input
-                type="number"
-                placeholder="e.g. 1, 15, 25"
-                min="1"
-                max="28"
-                step="1"
-                value={dayOfMonth}
-                onChange={(e) => { setDayOfMonth(e.target.value); setError(''); }}
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
           </div>
@@ -149,9 +136,9 @@ export function MonthlyCommitments() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          {c.dayOfMonth
-                            ? <><CalendarDays className="w-3 h-3 shrink-0" />Due every {ordinal(c.dayOfMonth)} of the month</>
-                            : 'No due day set'
+                          {c.dueDate
+                            ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(c.dueDate), 'd MMM yyyy')}</>
+                            : 'No due date set'
                           }
                         </p>
                       </div>

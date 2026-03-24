@@ -17,16 +17,16 @@ export interface BnplItem {
   totalAmount: number;
   installments: number;
   monthlyPayment: number;
-  /** Day of month (1–28) the installment is due each month */
-  dayOfMonth?: number;
+  /** ISO date string (YYYY-MM-DD) for the next payment due date */
+  dueDate?: string;
 }
 
 export interface Commitment {
   id: string;
   name: string;
   amount: number;
-  /** Day of month (1–28) the commitment is due each month */
-  dayOfMonth?: number;
+  /** ISO date string (YYYY-MM-DD) for the next payment due date */
+  dueDate?: string;
 }
 
 interface SpendState {
