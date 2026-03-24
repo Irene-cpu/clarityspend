@@ -29,11 +29,22 @@ export interface Commitment {
   dueDate?: string;
 }
 
+export interface IncomeEntry {
+  id: string;
+  source: string;
+  amount: number;
+  /** ISO date string */
+  date: string;
+  /** If true, counted every month. If false, only counted in the month of its date. */
+  recurring: boolean;
+}
+
 interface SpendState {
   budget: number | null;
   expenses: Expense[];
   bnplItems: BnplItem[];
   commitments: Commitment[];
+  incomeEntries: IncomeEntry[];
   setBudget: (amount: number) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   removeExpense: (id: string) => void;
@@ -42,6 +53,8 @@ interface SpendState {
   removeBnplItem: (id: string) => void;
   addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
   removeCommitment: (id: string) => void;
+  addIncome: (entry: Omit<IncomeEntry, 'id'>) => void;
+  removeIncome: (id: string) => void;
 }
 
 export const useSpendStore = create<SpendState>()(
@@ -51,14 +64,12 @@ export const useSpendStore = create<SpendState>()(
       expenses: [],
       bnplItems: [],
       commitments: [],
+      incomeEntries: [],
 
       setBudget: (amount) => set({ budget: amount }),
 
       addExpense: (expense) => set((state) => ({
-        expenses: [
-          { ...expense, id: crypto.randomUUID() },
-          ...state.expenses,
-        ],
+        expenses: [{ ...expense, id: crypto.randomUUID() }, ...state.expenses],
       })),
 
       removeExpense: (id) => set((state) => ({
@@ -83,16 +94,33 @@ export const useSpendStore = create<SpendState>()(
       })),
 
       addCommitment: (commitment) => set((state) => ({
-        commitments: [
-          { ...commitment, id: crypto.randomUUID() },
-          ...state.commitments,
-        ],
+        commitments: [{ ...commitment, id: crypto.randomUUID() }, ...state.commitments],
       })),
 
       removeCommitment: (id) => set((state) => ({
         commitments: state.commitments.filter((c) => c.id !== id),
       })),
+
+      addIncome: (entry) => set((state) => ({
+        incomeEntries: [{ ...entry, id: crypto.randomUUID() }, ...state.incomeEntries],
+      })),
+
+      removeIncome: (id) => set((state) => ({
+        incomeEntries: state.incomeEntries.filter((e) => e.id !== id),
+      })),
     }),
     { name: 'clarityspend-storage' }
   )
 );
+
+/** Helper — computes total monthly income from a list of entries. */
+export function calcMonthlyIncome(entries: IncomeEntry[]): number {
+  const now = new Date();
+  const m = now.getMonth();
+  const y = now.getFullYear();
+  return entries.reduce((sum, e) => {
+    if (e.recurring) return sum + e.amount;
+    const d = new Date(e.date);
+    return d.getMonth() === m && d.getFullYear() === y ? sum + e.amount : sum;
+  }, 0);
+}

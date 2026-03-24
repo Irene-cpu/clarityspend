@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSpendStore } from '@/store/use-spend-store';
+import { useSpendStore, calcMonthlyIncome } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ interface EvalResult {
   pricePercent: number;
 }
 
-function getLevel(price: number, remaining: number, budget: number): ResultLevel {
+function getLevel(price: number, remaining: number): ResultLevel {
   if (remaining <= 0) return 'over';
   if (price > remaining) return 'risky';
   if (price / remaining > 0.5) return 'careful';
@@ -33,84 +33,53 @@ const levelConfig: Record<ResultLevel, {
   badge: string;
   bar: string;
 }> = {
-  safe: {
-    icon: <CheckCircle2 className="w-6 h-6 text-emerald-600" />,
-    label: 'Safe to Spend',
-    card: 'bg-emerald-50 border-emerald-200',
-    headline: 'text-emerald-800',
-    text: 'text-emerald-700',
-    badge: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    bar: 'bg-emerald-400',
-  },
-  careful: {
-    icon: <AlertTriangle className="w-6 h-6 text-orange-500" />,
-    label: 'Be Careful',
-    card: 'bg-orange-50 border-orange-200',
-    headline: 'text-orange-800',
-    text: 'text-orange-700',
-    badge: 'bg-orange-100 text-orange-700 border-orange-200',
-    bar: 'bg-orange-400',
-  },
-  risky: {
-    icon: <XCircle className="w-6 h-6 text-red-500" />,
-    label: 'Risky Purchase',
-    card: 'bg-red-50 border-red-200',
-    headline: 'text-red-800',
-    text: 'text-red-700',
-    badge: 'bg-red-100 text-red-700 border-red-200',
-    bar: 'bg-red-400',
-  },
-  over: {
-    icon: <XCircle className="w-6 h-6 text-red-500" />,
-    label: 'Over Budget',
-    card: 'bg-red-50 border-red-200',
-    headline: 'text-red-800',
-    text: 'text-red-700',
-    badge: 'bg-red-100 text-red-700 border-red-200',
-    bar: 'bg-red-500',
-  },
+  safe:    { icon: <CheckCircle2 className="w-6 h-6 text-emerald-600" />, label: 'Safe to Spend',   card: 'bg-emerald-50 border-emerald-200', headline: 'text-emerald-800', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', bar: 'bg-emerald-400' },
+  careful: { icon: <AlertTriangle className="w-6 h-6 text-orange-500" />, label: 'Be Careful',      card: 'bg-orange-50 border-orange-200',   headline: 'text-orange-800',  text: 'text-orange-700',  badge: 'bg-orange-100 text-orange-700 border-orange-200',   bar: 'bg-orange-400' },
+  risky:   { icon: <XCircle className="w-6 h-6 text-red-500" />,          label: 'Risky Purchase',  card: 'bg-red-50 border-red-200',         headline: 'text-red-800',     text: 'text-red-700',     badge: 'bg-red-100 text-red-700 border-red-200',             bar: 'bg-red-400' },
+  over:    { icon: <XCircle className="w-6 h-6 text-red-500" />,          label: 'Over Budget',     card: 'bg-red-50 border-red-200',         headline: 'text-red-800',     text: 'text-red-700',     badge: 'bg-red-100 text-red-700 border-red-200',             bar: 'bg-red-500' },
 };
 
 export function DecisionAssistant() {
-  const { budget, expenses, bnplItems, commitments } = useSpendStore();
+  const { budget, expenses, bnplItems, commitments, incomeEntries } = useSpendStore();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [result, setResult] = useState<EvalResult | null>(null);
 
-  const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalBnplMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
-  const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
-  const remaining = (budget ?? 0) - totalSpent - totalBnplMonthly - totalCommitments;
-  const noBudget = budget === null;
+  const totalSpent        = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalBnplMonthly  = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
+  const totalCommitments  = commitments.reduce((sum, c) => sum + c.amount, 0);
+  const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
+  const hasIncome          = incomeEntries.length > 0;
+
+  // Primary base: income if available, else budget
+  const primaryBase = hasIncome ? totalMonthlyIncome : (budget ?? 0);
+  const remaining   = primaryBase - totalSpent - totalBnplMonthly - totalCommitments;
+  const noBasis     = !hasIncome && budget === null;
 
   const evaluate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!budget) return;
+    if (noBasis) return;
     const p = parseFloat(price);
     if (isNaN(p) || p <= 0) return;
 
-    const level = getLevel(p, remaining, budget);
+    const level          = getLevel(p, remaining);
     const remainingAfter = remaining - p;
-    const pricePercent = (p / budget) * 100;
+    const pricePercent   = primaryBase > 0 ? (p / primaryBase) * 100 : 0;
 
     const messages: Record<ResultLevel, string> = {
-      safe: `You can comfortably afford ${name || 'this'}. You'll have ${formatRM(remainingAfter)} left after this purchase.`,
-      careful: `${name || 'This'} would use up more than half of your remaining budget. You'd have ${formatRM(remainingAfter)} left.`,
-      risky: `${name || 'This'} costs ${formatRM(Math.abs(remainingAfter))} more than what you have left. Consider waiting.`,
-      over: `You're already ${formatRM(Math.abs(remaining))} over your budget. Adding more spending isn't recommended.`,
+      safe:    `You can comfortably afford ${name || 'this'}. You'll have ${formatRM(remainingAfter)} left after this purchase.`,
+      careful: `${name || 'This'} would use up more than half of your remaining money. You'd have ${formatRM(remainingAfter)} left.`,
+      risky:   `${name || 'This'} costs ${formatRM(Math.abs(remainingAfter))} more than what you have left. Consider waiting.`,
+      over:    `You're already ${formatRM(Math.abs(remaining))} over your ${hasIncome ? 'income' : 'budget'}. Adding more spending isn't recommended.`,
     };
 
     setResult({ level, headline: levelConfig[level].label, message: messages[level], remainingAfter, pricePercent });
   };
 
-  const reset = () => {
-    setName('');
-    setPrice('');
-    setResult(null);
-  };
+  const reset = () => { setName(''); setPrice(''); setResult(null); };
 
-  const cfg = result ? levelConfig[result.level] : null;
-  const canSubmit = !noBudget && name.trim() !== '' && price !== '' && !isNaN(parseFloat(price)) && parseFloat(price) > 0;
+  const cfg       = result ? levelConfig[result.level] : null;
+  const canSubmit = !noBasis && name.trim() !== '' && price !== '' && !isNaN(parseFloat(price)) && parseFloat(price) > 0;
 
   return (
     <Card className="overflow-hidden bg-white">
@@ -123,7 +92,7 @@ export function DecisionAssistant() {
           <h2 className="text-lg font-bold text-foreground">Should I Buy This?</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Enter a potential purchase to instantly see if it fits your budget.
+          Enter a potential purchase to instantly see if it fits your finances.
         </p>
 
         <form onSubmit={evaluate} className="space-y-4">
@@ -134,7 +103,7 @@ export function DecisionAssistant() {
                 placeholder="e.g. New Headphones"
                 value={name}
                 onChange={(e) => { setName(e.target.value); setResult(null); }}
-                disabled={noBudget}
+                disabled={noBasis}
               />
             </div>
             <div>
@@ -148,7 +117,7 @@ export function DecisionAssistant() {
                 onChange={(e) => { setPrice(e.target.value); setResult(null); }}
                 icon={<span className="font-bold text-foreground text-sm">RM</span>}
                 className="pl-14"
-                disabled={noBudget}
+                disabled={noBasis}
               />
             </div>
           </div>
@@ -164,9 +133,9 @@ export function DecisionAssistant() {
             )}
           </div>
 
-          {noBudget && (
+          {noBasis && (
             <p className="text-sm text-center text-muted-foreground">
-              Please set a monthly budget first.
+              Please add income sources or set a monthly budget first.
             </p>
           )}
         </form>
@@ -188,23 +157,23 @@ export function DecisionAssistant() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className={`text-base font-bold ${cfg.headline}`}>{result.headline}</h4>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.badge}`}>
-                        {result.pricePercent.toFixed(1)}% of budget
+                        {result.pricePercent.toFixed(1)}% of {hasIncome ? 'income' : 'budget'}
                       </span>
                     </div>
                     <p className={`mt-1.5 text-sm leading-relaxed ${cfg.text}`}>{result.message}</p>
 
                     <div className="mt-4 space-y-1.5">
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Budget used after purchase</span>
+                        <span>Usage after purchase</span>
                         <span className={`font-semibold ${cfg.text}`}>
-                          {budget ? Math.min(((totalSpent + totalBnplMonthly + parseFloat(price)) / budget) * 100, 100).toFixed(1) : 0}%
+                          {primaryBase > 0 ? Math.min(((totalSpent + totalBnplMonthly + totalCommitments + parseFloat(price)) / primaryBase) * 100, 100).toFixed(1) : 0}%
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-black/5 overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{
-                            width: `${budget ? Math.min(((totalSpent + totalBnplMonthly + parseFloat(price)) / budget) * 100, 100) : 0}%`,
+                            width: `${primaryBase > 0 ? Math.min(((totalSpent + totalBnplMonthly + totalCommitments + parseFloat(price)) / primaryBase) * 100, 100) : 0}%`,
                           }}
                           transition={{ duration: 0.6, ease: 'easeOut' }}
                           className={`h-full rounded-full ${cfg.bar}`}
