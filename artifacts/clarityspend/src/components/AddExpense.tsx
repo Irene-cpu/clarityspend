@@ -61,15 +61,17 @@ export function AddExpense() {
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="md:col-span-3">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Amount</label>
               <Input
                 type="number"
                 placeholder="0.00"
+                min="0"
+                step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                icon={<span className="font-bold text-foreground">RM</span>}
-                className="pl-14"
+                icon={<span className="font-semibold text-foreground text-sm">RM</span>}
+                className="pl-11"
               />
             </div>
 
@@ -92,7 +94,7 @@ export function AddExpense() {
               </div>
             </div>
 
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Date</label>
               <Input
                 type="date"
