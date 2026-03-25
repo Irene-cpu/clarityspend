@@ -3,7 +3,7 @@ import { useSpendStore, ExpenseCategory } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, Receipt, ReceiptText } from 'lucide-react';
+import { Trash2, Receipt, ReceiptText, Users, Heart } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -70,9 +70,13 @@ export function ExpenseHistory() {
           <ul className="divide-y divide-border">
             <AnimatePresence initial={false}>
               {sorted.map((expense, index) => {
-                const style = CATEGORY_STYLES[expense.category];
+                const style       = CATEGORY_STYLES[expense.category];
                 const expenseDate = new Date(expense.date);
-                const showTime = isToday(expenseDate);
+                const showTime    = isToday(expenseDate);
+                const isSplit     = expense.paymentType === 'SplitBill';
+                const isTreat     = expense.paymentType === 'Treat';
+                const displayAmt  = expense.userShare ?? expense.amount;
+
                 return (
                   <motion.li
                     key={expense.id}
@@ -80,16 +84,30 @@ export function ExpenseHistory() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -12, height: 0 }}
                     transition={{ duration: 0.22, delay: index === 0 ? 0 : 0 }}
-                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors duration-150"
+                    className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors duration-150"
                   >
                     {/* Color dot */}
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dot}`} />
+                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${style.dot}`} />
 
-                    {/* Name + date */}
+                    {/* Name + date + tags */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate leading-snug">
-                        {expense.name}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground truncate leading-snug">
+                          {expense.name}
+                        </p>
+                        {isSplit && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-200 shrink-0">
+                            <Users className="w-2.5 h-2.5" />
+                            Split {expense.splitPeople}
+                          </span>
+                        )}
+                        {isTreat && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700 border border-pink-200 shrink-0">
+                            <Heart className="w-2.5 h-2.5" />
+                            Treat
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(expenseDate, 'MMM d, yyyy')}
                         {showTime && (
@@ -98,24 +116,37 @@ export function ExpenseHistory() {
                             {format(expenseDate, 'h:mm a')}
                           </>
                         )}
+                        {isSplit && expense.splitPeople && (
+                          <>
+                            <span className="mx-1 opacity-40">·</span>
+                            Full: {formatRM(expense.amount)}
+                          </>
+                        )}
                       </p>
                     </div>
 
                     {/* Category badge */}
-                    <span className={`hidden sm:inline-flex text-xs font-medium px-2 py-0.5 rounded-md border shrink-0 ${style.badge}`}>
+                    <span className={`hidden sm:inline-flex text-xs font-medium px-2 py-0.5 rounded-md border shrink-0 mt-0.5 ${style.badge}`}>
                       {expense.category}
                     </span>
 
-                    {/* Amount */}
-                    <p className="text-sm font-bold text-foreground tabular-nums shrink-0 min-w-[72px] text-right">
-                      {formatRM(expense.amount)}
-                    </p>
+                    {/* Amount — show user's share, full amount dimmed for splits */}
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-foreground tabular-nums">
+                        {formatRM(displayAmt)}
+                      </p>
+                      {isSplit && (
+                        <p className="text-[10px] text-muted-foreground tabular-nums">
+                          your share
+                        </p>
+                      )}
+                    </div>
 
                     {/* Delete */}
                     <button
                       onClick={() => removeExpense(expense.id)}
                       aria-label={`Delete ${expense.name}`}
-                      className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors duration-150"
+                      className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors duration-150 mt-0.5"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

@@ -61,7 +61,8 @@ function StatCard({
 export function DashboardStats() {
   const { budget, expenses, bnplItems, commitments, incomeEntries } = useSpendStore();
 
-  const totalSpent         = expenses.reduce((sum, e) => sum + e.amount, 0);
+  // For totals, SplitBill expenses count only the user's share; Normal and Treat use full amount
+  const totalSpent         = expenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
   const totalBnplMonthly   = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const totalCommitments   = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
@@ -69,7 +70,7 @@ export function DashboardStats() {
 
   const todayStr       = new Date().toDateString();
   const todayExpenses  = expenses.filter((e) => new Date(e.date).toDateString() === todayStr);
-  const todaySpent     = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const todaySpent     = todayExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
 
   // Primary figure: income if set, otherwise budget
   const primaryBase    = hasIncome ? totalMonthlyIncome : (budget ?? 0);

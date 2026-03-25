@@ -2,13 +2,21 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ExpenseCategory = 'Food' | 'Transportation' | 'Shopping' | 'Bills' | 'Entertainment' | 'Other';
+export type PaymentType = 'Normal' | 'SplitBill' | 'Treat';
 
 export interface Expense {
   id: string;
   name: string;
+  /** Full amount paid (before splitting) */
   amount: number;
   category: ExpenseCategory;
   date: string;
+  /** How this expense was paid — defaults to 'Normal' for legacy entries */
+  paymentType?: PaymentType;
+  /** Number of people splitting (only for SplitBill) */
+  splitPeople?: number;
+  /** User's actual cost: amount / splitPeople for SplitBill, or amount for Normal/Treat */
+  userShare?: number;
 }
 
 export interface BnplItem {
