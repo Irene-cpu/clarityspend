@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useSpendStore, ExpenseCategory } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,32 +22,15 @@ interface ChartEntry {
   color: string;
 }
 
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: { payload: ChartEntry }[];
-}
-
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  return (
-    <div className="bg-white border border-border rounded-xl shadow-lg px-3.5 py-2.5 text-sm">
-      <p className="font-semibold text-foreground">{d.category}</p>
-      <p className="text-muted-foreground mt-0.5">{formatRM(d.amount)}</p>
-      <p className="text-muted-foreground">{d.percentage.toFixed(1)}% of spending</p>
-    </div>
-  );
-}
-
 export function SpendingChart() {
   const { expenses } = useSpendStore();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   if (expenses.length === 0) return null;
 
-  // Aggregate by category
+  // Aggregate by category — use userShare for split bills so chart matches dashboard totals
   const totals = expenses.reduce<Partial<Record<ExpenseCategory, number>>>((acc, e) => {
-    acc[e.category] = (acc[e.category] ?? 0) + e.amount;
+    acc[e.category] = (acc[e.category] ?? 0) + (e.userShare ?? e.amount);
     return acc;
   }, {});
 
@@ -108,11 +91,10 @@ export function SpendingChart() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
-              {/* Centre label */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              {/* Centre label — acts as the single tooltip on hover */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2">
                 <AnimatePresence mode="wait">
                   {activeIndex !== null ? (
                     <motion.div
@@ -121,10 +103,20 @@ export function SpendingChart() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.15 }}
-                      className="text-center"
+                      className="text-center w-full"
                     >
-                      <p className="text-xs font-semibold text-muted-foreground">{data[activeIndex].category}</p>
-                      <p className="text-sm font-bold text-foreground">{data[activeIndex].percentage.toFixed(0)}%</p>
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-wide truncate"
+                        style={{ color: data[activeIndex].color }}
+                      >
+                        {data[activeIndex].category}
+                      </p>
+                      <p className="text-sm font-bold text-foreground leading-tight mt-0.5">
+                        {formatRM(data[activeIndex].amount)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {data[activeIndex].percentage.toFixed(1)}%
+                      </p>
                     </motion.div>
                   ) : (
                     <motion.div
