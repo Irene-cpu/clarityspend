@@ -101,8 +101,8 @@ export function AddExpense() {
           </div>
 
           {/* Main row: name, amount, category, date */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="sm:col-span-2 md:col-span-1">
               <label className="text-sm font-medium mb-1.5 block text-foreground">Expense Name</label>
               <Input
                 placeholder="e.g. Grab Food"
@@ -111,7 +111,7 @@ export function AddExpense() {
               />
             </div>
 
-            <div className="md:col-span-3">
+            <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">Amount</label>
               <Input
                 type="number"
@@ -125,7 +125,7 @@ export function AddExpense() {
               />
             </div>
 
-            <div className="md:col-span-3">
+            <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">Category</label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
@@ -144,7 +144,7 @@ export function AddExpense() {
               </div>
             </div>
 
-            <div className="md:col-span-2">
+            <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">Date</label>
               <Input
                 type="date"
