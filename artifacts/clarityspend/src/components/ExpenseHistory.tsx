@@ -3,7 +3,7 @@ import { useSpendStore, ExpenseCategory } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, Receipt, ReceiptText, Users, Heart } from 'lucide-react';
+import { Trash2, Receipt, ReceiptText, Users, Heart, Pencil } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,11 +17,16 @@ const CATEGORY_STYLES: Record<ExpenseCategory, { badge: string; dot: string }> =
 };
 
 export function ExpenseHistory() {
-  const { expenses, removeExpense, clearExpenses } = useSpendStore();
+  const { expenses, removeExpense, clearExpenses, editingExpenseId, setEditingExpenseId } = useSpendStore();
 
   const sorted = [...expenses].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
+
+  const handleEdit = (id: string) => {
+    setEditingExpenseId(id);
+    document.getElementById('add-expense-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <Card className="overflow-hidden bg-white">
@@ -76,6 +81,7 @@ export function ExpenseHistory() {
                 const isSplit     = expense.paymentType === 'SplitBill';
                 const isTreat     = expense.paymentType === 'Treat';
                 const displayAmt  = expense.userShare ?? expense.amount;
+                const isBeingEdited = editingExpenseId === expense.id;
 
                 return (
                   <motion.li
@@ -84,7 +90,11 @@ export function ExpenseHistory() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -12, height: 0 }}
                     transition={{ duration: 0.22, delay: index === 0 ? 0 : 0 }}
-                    className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors duration-150"
+                    className={`flex items-start gap-3 px-5 py-3.5 transition-colors duration-150 ${
+                      isBeingEdited
+                        ? 'bg-amber-50 border-l-2 border-amber-400'
+                        : 'hover:bg-slate-50'
+                    }`}
                   >
                     {/* Color dot */}
                     <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${style.dot}`} />
@@ -105,6 +115,12 @@ export function ExpenseHistory() {
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700 border border-pink-200 shrink-0">
                             <Heart className="w-2.5 h-2.5" />
                             Treat
+                          </span>
+                        )}
+                        {isBeingEdited && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+                            <Pencil className="w-2.5 h-2.5" />
+                            Editing
                           </span>
                         )}
                       </div>
@@ -130,7 +146,7 @@ export function ExpenseHistory() {
                       {expense.category}
                     </span>
 
-                    {/* Amount — show user's share, full amount dimmed for splits */}
+                    {/* Amount */}
                     <div className="text-right shrink-0">
                       <p className="text-sm font-bold text-foreground tabular-nums">
                         {formatRM(displayAmt)}
@@ -141,6 +157,19 @@ export function ExpenseHistory() {
                         </p>
                       )}
                     </div>
+
+                    {/* Edit */}
+                    <button
+                      onClick={() => handleEdit(expense.id)}
+                      aria-label={`Edit ${expense.name}`}
+                      className={`w-8 h-8 shrink-0 flex items-center justify-center rounded-lg transition-colors duration-150 mt-0.5 ${
+                        isBeingEdited
+                          ? 'bg-amber-200 text-amber-700'
+                          : 'text-muted-foreground hover:bg-amber-50 hover:text-amber-500'
+                      }`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
 
                     {/* Delete */}
                     <button

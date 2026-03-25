@@ -4,22 +4,42 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Landmark, Trash2, Plus, CalendarDays } from 'lucide-react';
+import { Landmark, Trash2, Plus, CalendarDays, Pencil, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 
 const COMMITMENT_SUGGESTIONS = ['Rent', 'Credit Card', 'Insurance', 'Car Loan', 'Utilities', 'Internet', 'Gym'];
 
 export function MonthlyCommitments() {
-  const { budget, commitments, addCommitment, removeCommitment } = useSpendStore();
+  const { budget, commitments, addCommitment, updateCommitment, removeCommitment } = useSpendStore();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
+  const isEditing = editingId !== null;
   const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
   const budgetWarning = budget !== null && totalCommitments > budget * 0.6;
+
+  const startEdit = (id: string) => {
+    const c = commitments.find((x) => x.id === id);
+    if (!c) return;
+    setEditingId(id);
+    setName(c.name);
+    setAmount(String(c.amount));
+    setDueDate(c.dueDate ?? '');
+    setError('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setName('');
+    setAmount('');
+    setDueDate('');
+    setError('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,10 +47,16 @@ export function MonthlyCommitments() {
     const amt = parseFloat(amount);
     if (!name.trim()) { setError('Please enter a commitment name.'); return; }
     if (isNaN(amt) || amt <= 0) { setError('Please enter a valid amount.'); return; }
-    addCommitment({ name: name.trim(), amount: amt, dueDate: dueDate || undefined });
-    setName('');
-    setAmount('');
-    setDueDate('');
+
+    if (isEditing && editingId) {
+      updateCommitment(editingId, { name: name.trim(), amount: amt, dueDate: dueDate || undefined });
+      cancelEdit();
+    } else {
+      addCommitment({ name: name.trim(), amount: amt, dueDate: dueDate || undefined });
+      setName('');
+      setAmount('');
+      setDueDate('');
+    }
   };
 
   return (
@@ -48,18 +74,37 @@ export function MonthlyCommitments() {
           Fixed recurring payments. Set a due date so upcoming payments are tracked automatically.
         </p>
 
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {COMMITMENT_SUGGESTIONS.map((s) => (
+        {!isEditing && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {COMMITMENT_SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setName(s)}
+                className="text-xs px-2.5 py-1 rounded-full border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {isEditing && (
+          <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-2">
+              <Pencil className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-xs font-semibold text-amber-700">Editing commitment</span>
+            </div>
             <button
-              key={s}
               type="button"
-              onClick={() => setName(s)}
-              className="text-xs px-2.5 py-1 rounded-full border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+              onClick={cancelEdit}
+              className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition-colors"
             >
-              {s}
+              <X className="w-3 h-3" />
+              Cancel
             </button>
-          ))}
-        </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -81,7 +126,7 @@ export function MonthlyCommitments() {
                 value={amount}
                 onChange={(e) => { setAmount(e.target.value); setError(''); }}
                 icon={<span className="font-bold text-foreground text-sm">RM</span>}
-                className="pl-14"
+                className="pl-11"
               />
             </div>
             <div>
@@ -98,14 +143,24 @@ export function MonthlyCommitments() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <Button
-            type="submit"
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white"
-            disabled={!name.trim() || !amount}
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Add Commitment
-          </Button>
+          <div className="flex gap-3">
+            {isEditing && (
+              <Button type="button" variant="outline" onClick={cancelEdit} className="flex-1">
+                <X className="w-4 h-4 mr-1.5" />
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              className={`flex-1 ${isEditing ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+              disabled={!name.trim() || !amount}
+            >
+              {isEditing
+                ? <><Pencil className="w-4 h-4 mr-1.5" /> Save Changes</>
+                : <><Plus className="w-4 h-4 mr-1.5" /> Add Commitment</>
+              }
+            </Button>
+          </div>
         </form>
 
         <AnimatePresence>
@@ -121,39 +176,57 @@ export function MonthlyCommitments() {
 
               <div className="space-y-2">
                 <AnimatePresence>
-                  {commitments.map((c) => (
-                    <motion.div
-                      key={c.id}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
-                      transition={{ duration: 0.22 }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center shrink-0">
-                        <Landmark className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          {c.dueDate
-                            ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(c.dueDate), 'd MMM yyyy')}</>
-                            : 'No due date set'
-                          }
-                        </p>
-                      </div>
-                      <p className="text-sm font-bold text-teal-700 shrink-0">
-                        {formatRM(c.amount)}<span className="text-xs font-normal text-muted-foreground">/mo</span>
-                      </p>
-                      <button
-                        onClick={() => removeCommitment(c.id)}
-                        className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                        aria-label="Remove commitment"
+                  {commitments.map((c) => {
+                    const isBeingEdited = editingId === c.id;
+                    return (
+                      <motion.div
+                        key={c.id}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 ${
+                          isBeingEdited
+                            ? 'bg-amber-50 border-amber-300'
+                            : 'bg-slate-50 border-slate-100'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </motion.div>
-                  ))}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isBeingEdited ? 'bg-amber-100 text-amber-600' : 'bg-teal-100 text-teal-600'}`}>
+                          <Landmark className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                            {c.dueDate
+                              ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(c.dueDate), 'd MMM yyyy')}</>
+                              : 'No due date set'
+                            }
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold text-teal-700 shrink-0">
+                          {formatRM(c.amount)}<span className="text-xs font-normal text-muted-foreground">/mo</span>
+                        </p>
+                        <button
+                          onClick={() => startEdit(c.id)}
+                          aria-label="Edit commitment"
+                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                            isBeingEdited
+                              ? 'bg-amber-200 text-amber-700'
+                              : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-50'
+                          }`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeCommitment(c.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                          aria-label="Remove commitment"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
 

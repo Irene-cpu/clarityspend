@@ -4,19 +4,21 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays } from 'lucide-react';
+import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays, Pencil, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 
 export function BnplTracker() {
-  const { budget, bnplItems, addBnplItem, removeBnplItem } = useSpendStore();
+  const { budget, bnplItems, addBnplItem, updateBnplItem, removeBnplItem } = useSpendStore();
 
   const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [installments, setInstallments] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
+  const isEditing = editingId !== null;
   const totalMonthly = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
 
   const monthlyPreview = (() => {
@@ -26,6 +28,26 @@ export function BnplTracker() {
     return null;
   })();
 
+  const startEdit = (id: string) => {
+    const item = bnplItems.find((b) => b.id === id);
+    if (!item) return;
+    setEditingId(id);
+    setName(item.name);
+    setTotalAmount(String(item.totalAmount));
+    setInstallments(String(item.installments));
+    setDueDate(item.dueDate ?? '');
+    setError('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setName('');
+    setTotalAmount('');
+    setInstallments('');
+    setDueDate('');
+    setError('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -34,11 +56,17 @@ export function BnplTracker() {
     if (!name.trim()) { setError('Please enter an item name.'); return; }
     if (isNaN(t) || t <= 0) { setError('Enter a valid total amount.'); return; }
     if (isNaN(n) || n < 1 || n > 120) { setError('Installments must be between 1 and 120 months.'); return; }
-    addBnplItem({ name: name.trim(), totalAmount: t, installments: n, dueDate: dueDate || undefined });
-    setName('');
-    setTotalAmount('');
-    setInstallments('');
-    setDueDate('');
+
+    if (isEditing && editingId) {
+      updateBnplItem(editingId, { name: name.trim(), totalAmount: t, installments: n, dueDate: dueDate || undefined });
+      cancelEdit();
+    } else {
+      addBnplItem({ name: name.trim(), totalAmount: t, installments: n, dueDate: dueDate || undefined });
+      setName('');
+      setTotalAmount('');
+      setInstallments('');
+      setDueDate('');
+    }
   };
 
   const budgetWarning = budget !== null && totalMonthly > budget * 0.5;
@@ -57,6 +85,23 @@ export function BnplTracker() {
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
           Track Buy Now, Pay Later plans. Set a due date so upcoming payments are tracked automatically.
         </p>
+
+        {isEditing && (
+          <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-2">
+              <Pencil className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-xs font-semibold text-amber-700">Editing BNPL plan</span>
+            </div>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Cancel
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -78,7 +123,7 @@ export function BnplTracker() {
                 value={totalAmount}
                 onChange={(e) => { setTotalAmount(e.target.value); setError(''); }}
                 icon={<span className="font-bold text-foreground text-sm">RM</span>}
-                className="pl-14"
+                className="pl-11"
               />
             </div>
             <div>
@@ -125,14 +170,24 @@ export function BnplTracker() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <Button
-            type="submit"
-            className="w-full bg-sky-600 hover:bg-sky-700 text-white"
-            disabled={!name.trim() || !totalAmount || !installments}
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Add BNPL Plan
-          </Button>
+          <div className="flex gap-3">
+            {isEditing && (
+              <Button type="button" variant="outline" onClick={cancelEdit} className="flex-1">
+                <X className="w-4 h-4 mr-1.5" />
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              className={`flex-1 ${isEditing ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+              disabled={!name.trim() || !totalAmount || !installments}
+            >
+              {isEditing
+                ? <><Pencil className="w-4 h-4 mr-1.5" /> Save Changes</>
+                : <><Plus className="w-4 h-4 mr-1.5" /> Add BNPL Plan</>
+              }
+            </Button>
+          </div>
         </form>
 
         <AnimatePresence>
@@ -148,39 +203,57 @@ export function BnplTracker() {
 
               <div className="space-y-2">
                 <AnimatePresence>
-                  {bnplItems.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
-                      transition={{ duration: 0.22 }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">
-                        <CreditCard className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          {item.dueDate
-                            ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(item.dueDate), 'd MMM yyyy')} · {item.installments} months</>
-                            : `${formatRM(item.totalAmount)} total · ${item.installments} months`
-                          }
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-sky-700">{formatRM(item.monthlyPayment)}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
-                      </div>
-                      <button
-                        onClick={() => removeBnplItem(item.id)}
-                        className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                        aria-label="Remove plan"
+                  {bnplItems.map((item) => {
+                    const isBeingEdited = editingId === item.id;
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 ${
+                          isBeingEdited
+                            ? 'bg-amber-50 border-amber-300'
+                            : 'bg-slate-50 border-slate-100'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </motion.div>
-                  ))}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isBeingEdited ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-600'}`}>
+                          <CreditCard className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                            {item.dueDate
+                              ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(item.dueDate), 'd MMM yyyy')} · {item.installments} months</>
+                              : `${formatRM(item.totalAmount)} total · ${item.installments} months`
+                            }
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-sky-700">{formatRM(item.monthlyPayment)}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                        </div>
+                        <button
+                          onClick={() => startEdit(item.id)}
+                          aria-label="Edit plan"
+                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                            isBeingEdited
+                              ? 'bg-amber-200 text-amber-700'
+                              : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-50'
+                          }`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeBnplItem(item.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                          aria-label="Remove plan"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
 

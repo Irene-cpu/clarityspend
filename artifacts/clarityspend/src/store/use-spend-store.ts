@@ -53,14 +53,26 @@ interface SpendState {
   bnplItems: BnplItem[];
   commitments: Commitment[];
   incomeEntries: IncomeEntry[];
+
+  /** Transient (not persisted) — id of the expense currently being edited */
+  editingExpenseId: string | null;
+
   setBudget: (amount: number) => void;
+
   addExpense: (expense: Omit<Expense, 'id'>) => void;
+  updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => void;
   removeExpense: (id: string) => void;
   clearExpenses: () => void;
+  setEditingExpenseId: (id: string | null) => void;
+
   addBnplItem: (item: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
+  updateBnplItem: (id: string, updates: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
   removeBnplItem: (id: string) => void;
+
   addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
+  updateCommitment: (id: string, updates: Omit<Commitment, 'id'>) => void;
   removeCommitment: (id: string) => void;
+
   addIncome: (entry: Omit<IncomeEntry, 'id'>) => void;
   removeIncome: (id: string) => void;
 }
@@ -73,6 +85,7 @@ export const useSpendStore = create<SpendState>()(
       bnplItems: [],
       commitments: [],
       incomeEntries: [],
+      editingExpenseId: null,
 
       setBudget: (amount) => set({ budget: amount }),
 
@@ -80,11 +93,19 @@ export const useSpendStore = create<SpendState>()(
         expenses: [{ ...expense, id: crypto.randomUUID() }, ...state.expenses],
       })),
 
-      removeExpense: (id) => set((state) => ({
-        expenses: state.expenses.filter((e) => e.id !== id),
+      updateExpense: (id, updates) => set((state) => ({
+        expenses: state.expenses.map((e) => e.id === id ? { ...e, ...updates } : e),
+        editingExpenseId: null,
       })),
 
-      clearExpenses: () => set({ expenses: [] }),
+      removeExpense: (id) => set((state) => ({
+        expenses: state.expenses.filter((e) => e.id !== id),
+        editingExpenseId: state.editingExpenseId === id ? null : state.editingExpenseId,
+      })),
+
+      clearExpenses: () => set({ expenses: [], editingExpenseId: null }),
+
+      setEditingExpenseId: (id) => set({ editingExpenseId: id }),
 
       addBnplItem: (item) => set((state) => ({
         bnplItems: [
@@ -97,12 +118,26 @@ export const useSpendStore = create<SpendState>()(
         ],
       })),
 
+      updateBnplItem: (id, updates) => set((state) => ({
+        bnplItems: state.bnplItems.map((b) =>
+          b.id !== id ? b : {
+            ...b,
+            ...updates,
+            monthlyPayment: parseFloat((updates.totalAmount / updates.installments).toFixed(2)),
+          }
+        ),
+      })),
+
       removeBnplItem: (id) => set((state) => ({
         bnplItems: state.bnplItems.filter((b) => b.id !== id),
       })),
 
       addCommitment: (commitment) => set((state) => ({
         commitments: [{ ...commitment, id: crypto.randomUUID() }, ...state.commitments],
+      })),
+
+      updateCommitment: (id, updates) => set((state) => ({
+        commitments: state.commitments.map((c) => c.id === id ? { ...c, ...updates } : c),
       })),
 
       removeCommitment: (id) => set((state) => ({
@@ -117,7 +152,17 @@ export const useSpendStore = create<SpendState>()(
         incomeEntries: state.incomeEntries.filter((e) => e.id !== id),
       })),
     }),
-    { name: 'clarityspend-storage' }
+    {
+      name: 'clarityspend-storage',
+      // exclude transient UI state from localStorage
+      partialize: (state) => ({
+        budget: state.budget,
+        expenses: state.expenses,
+        bnplItems: state.bnplItems,
+        commitments: state.commitments,
+        incomeEntries: state.incomeEntries,
+      }),
+    }
   )
 );
 
