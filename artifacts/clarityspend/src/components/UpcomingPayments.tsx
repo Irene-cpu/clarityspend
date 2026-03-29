@@ -4,7 +4,7 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { CalendarClock, Landmark, CreditCard, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO, differenceInCalendarDays, startOfDay } from 'date-fns';
+import { format, parseISO, differenceInCalendarDays, startOfDay, getDate, setDate, addMonths, isBefore } from 'date-fns';
 
 interface PaymentEntry {
   id: string;
@@ -36,15 +36,25 @@ export function UpcomingPayments() {
   const allEntries: PaymentEntry[] = [
     ...commitments
       .filter((c) => !!c.dueDate)
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        amount: c.amount,
-        dueDate: c.dueDate!,
-        daysUntil: differenceInCalendarDays(startOfDay(parseISO(c.dueDate!)), today),
-        type: 'commitment' as const,
-        frequency: 'Monthly commitment',
-      })),
+      .map((c) => {
+        // For recurring commitments, roll the due day forward to this month's occurrence,
+        // and advance to next month if that date has already passed — display only, no data change.
+        const storedDate = parseISO(c.dueDate!);
+        const dayOfMonth = getDate(storedDate);
+        const thisMonthDue = startOfDay(setDate(today, dayOfMonth));
+        const effectiveDate = isBefore(thisMonthDue, today)
+          ? addMonths(thisMonthDue, 1)
+          : thisMonthDue;
+        return {
+          id: c.id,
+          name: c.name,
+          amount: c.amount,
+          dueDate: format(effectiveDate, 'yyyy-MM-dd'),
+          daysUntil: differenceInCalendarDays(effectiveDate, today),
+          type: 'commitment' as const,
+          frequency: 'Monthly commitment',
+        };
+      }),
     ...bnplItems
       .filter((b) => !!b.dueDate)
       .map((b) => ({
