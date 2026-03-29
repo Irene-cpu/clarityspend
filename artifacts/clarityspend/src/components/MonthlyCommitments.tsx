@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSpendStore } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Landmark, Trash2, Plus, CalendarDays, Pencil, X } from 'lucide-react';
+import { Landmark, Trash2, Plus, CalendarDays, Pencil, X, CheckCircle2, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 
 const COMMITMENT_SUGGESTIONS = ['Rent', 'Credit Card', 'Insurance', 'Car Loan', 'Utilities', 'Internet', 'Gym'];
 
 export function MonthlyCommitments() {
-  const { budget, commitments, addCommitment, updateCommitment, removeCommitment } = useSpendStore();
+  const {
+    budget,
+    commitments,
+    addCommitment,
+    updateCommitment,
+    removeCommitment,
+    toggleCommitmentPaid,
+    resetPaidCommitmentsForNewMonth,
+  } = useSpendStore();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -19,9 +27,15 @@ export function MonthlyCommitments() {
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    resetPaidCommitmentsForNewMonth();
+  }, []);
+
   const isEditing = editingId !== null;
   const totalCommitments = commitments.reduce((sum, c) => sum + c.amount, 0);
   const budgetWarning = budget !== null && totalCommitments > budget * 0.6;
+  const paidCount = commitments.filter((c) => !!c.paidAt).length;
+  const allPaid = commitments.length > 0 && paidCount === commitments.length;
 
   const startEdit = (id: string) => {
     const c = commitments.find((x) => x.id === id);
@@ -170,14 +184,31 @@ export function MonthlyCommitments() {
               animate={{ opacity: 1 }}
               className="mt-6 space-y-3"
             >
-              <p className="text-sm font-semibold text-foreground">
-                Active Commitments <span className="text-muted-foreground font-normal">({commitments.length})</span>
-              </p>
+              {/* Header row with paid counter */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">
+                  Active Commitments <span className="text-muted-foreground font-normal">({commitments.length})</span>
+                </p>
+                {commitments.length > 0 && (
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                    allPaid
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : paidCount > 0
+                      ? 'bg-teal-50 text-teal-700 border-teal-200'
+                      : 'bg-slate-50 text-slate-500 border-slate-200'
+                  }`}>
+                    <CheckCircle2 className="w-3 h-3" />
+                    {paidCount}/{commitments.length} paid this month
+                  </span>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <AnimatePresence>
                   {commitments.map((c) => {
                     const isBeingEdited = editingId === c.id;
+                    const isPaid = !!c.paidAt;
+
                     return (
                       <motion.div
                         key={c.id}
@@ -185,27 +216,56 @@ export function MonthlyCommitments() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
                         transition={{ duration: 0.22 }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 ${
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-200 ${
                           isBeingEdited
                             ? 'bg-amber-50 border-amber-300'
+                            : isPaid
+                            ? 'bg-green-50 border-green-200'
                             : 'bg-slate-50 border-slate-100'
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isBeingEdited ? 'bg-amber-100 text-amber-600' : 'bg-teal-100 text-teal-600'}`}>
-                          <Landmark className="w-3.5 h-3.5" />
-                        </div>
+                        {/* Mark as Paid toggle */}
+                        <button
+                          onClick={() => toggleCommitmentPaid(c.id)}
+                          aria-label={isPaid ? 'Mark as unpaid' : 'Mark as paid'}
+                          title={isPaid ? 'Click to unmark' : 'Mark as paid'}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 ${
+                            isBeingEdited
+                              ? 'bg-amber-100 text-amber-500 cursor-default pointer-events-none'
+                              : isPaid
+                              ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                              : 'bg-slate-100 text-slate-400 hover:bg-teal-100 hover:text-teal-600'
+                          }`}
+                        >
+                          {isPaid
+                            ? <CheckCircle2 className="w-4 h-4" />
+                            : <Circle className="w-4 h-4" />
+                          }
+                        </button>
+
+                        {/* Name + date */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
+                          <p className={`text-sm font-semibold truncate leading-snug transition-colors duration-200 ${
+                            isPaid ? 'line-through text-muted-foreground' : 'text-foreground'
+                          }`}>
+                            {c.name}
+                          </p>
                           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                            {c.dueDate
+                            {isPaid
+                              ? <><CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" /><span className="text-green-600">Paid {format(new Date(c.paidAt!), 'd MMM')}</span></>
+                              : c.dueDate
                               ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(c.dueDate), 'd MMM yyyy')}</>
                               : 'No due date set'
                             }
                           </p>
                         </div>
-                        <p className="text-sm font-bold text-teal-700 shrink-0">
+
+                        {/* Amount */}
+                        <p className={`text-sm font-bold shrink-0 transition-colors duration-200 ${isPaid ? 'text-muted-foreground' : 'text-teal-700'}`}>
                           {formatRM(c.amount)}<span className="text-xs font-normal text-muted-foreground">/mo</span>
                         </p>
+
+                        {/* Edit */}
                         <button
                           onClick={() => startEdit(c.id)}
                           aria-label="Edit commitment"
@@ -217,6 +277,8 @@ export function MonthlyCommitments() {
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
+
+                        {/* Delete */}
                         <button
                           onClick={() => removeCommitment(c.id)}
                           className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
@@ -230,6 +292,26 @@ export function MonthlyCommitments() {
                 </AnimatePresence>
               </div>
 
+              {/* All-paid celebration banner */}
+              <AnimatePresence>
+                {allPaid && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.25 }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border-2 border-green-200"
+                  >
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-green-800">All commitments paid this month!</p>
+                      <p className="text-xs text-green-600 mt-0.5">Great job staying on top of your bills.</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Total row */}
               <div className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 ${
                 budgetWarning ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'
               }`}>

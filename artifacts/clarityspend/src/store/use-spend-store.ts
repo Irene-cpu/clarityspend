@@ -35,6 +35,8 @@ export interface Commitment {
   amount: number;
   /** ISO date string (YYYY-MM-DD) for the next payment due date */
   dueDate?: string;
+  /** ISO date string — set when the user marks this paid. Cleared automatically on a new month. */
+  paidAt?: string;
 }
 
 export interface IncomeEntry {
@@ -72,6 +74,8 @@ interface SpendState {
   addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
   updateCommitment: (id: string, updates: Omit<Commitment, 'id'>) => void;
   removeCommitment: (id: string) => void;
+  toggleCommitmentPaid: (id: string) => void;
+  resetPaidCommitmentsForNewMonth: () => void;
 
   addIncome: (entry: Omit<IncomeEntry, 'id'>) => void;
   removeIncome: (id: string) => void;
@@ -143,6 +147,27 @@ export const useSpendStore = create<SpendState>()(
       removeCommitment: (id) => set((state) => ({
         commitments: state.commitments.filter((c) => c.id !== id),
       })),
+
+      toggleCommitmentPaid: (id) => set((state) => ({
+        commitments: state.commitments.map((c) => {
+          if (c.id !== id) return c;
+          return c.paidAt ? { ...c, paidAt: undefined } : { ...c, paidAt: new Date().toISOString() };
+        }),
+      })),
+
+      resetPaidCommitmentsForNewMonth: () => set((state) => {
+        const now = new Date();
+        const cm = now.getMonth();
+        const cy = now.getFullYear();
+        return {
+          commitments: state.commitments.map((c) => {
+            if (!c.paidAt) return c;
+            const paid = new Date(c.paidAt);
+            if (paid.getMonth() === cm && paid.getFullYear() === cy) return c;
+            return { ...c, paidAt: undefined };
+          }),
+        };
+      }),
 
       addIncome: (entry) => set((state) => ({
         incomeEntries: [{ ...entry, id: crypto.randomUUID() }, ...state.incomeEntries],
