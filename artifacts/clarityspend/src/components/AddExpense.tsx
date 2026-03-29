@@ -68,7 +68,7 @@ export function AddExpense() {
     const isToday = date === todayStr();
     const isoDate = isToday
       ? (isEditing ? expenses.find((ex) => ex.id === editingExpenseId)?.date ?? new Date().toISOString() : new Date().toISOString())
-      : new Date(date + 'T12:00:00').toISOString();
+      : date;
 
     const payload = {
       name: name.trim(),
