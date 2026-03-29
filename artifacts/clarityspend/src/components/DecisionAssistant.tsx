@@ -45,7 +45,7 @@ export function DecisionAssistant() {
   const [price, setPrice] = useState('');
   const [result, setResult] = useState<EvalResult | null>(null);
 
-  const totalSpent        = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalSpent        = expenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
   const totalBnplMonthly  = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const totalCommitments  = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
