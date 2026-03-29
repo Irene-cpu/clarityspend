@@ -20,7 +20,12 @@ export default function Login() {
     const { error } = await signInWithEmail(email.trim());
     setLoading(false);
     if (error) {
-      setError(error.message);
+      const msg = error.message.toLowerCase();
+      if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('429')) {
+        setError('Too many requests — please wait a few minutes before trying again.');
+      } else {
+        setError(error.message);
+      }
     } else {
       setSent(true);
     }
