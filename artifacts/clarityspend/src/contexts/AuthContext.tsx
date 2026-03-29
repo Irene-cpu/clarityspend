@@ -17,22 +17,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
+    // Register the listener FIRST so we never miss INITIAL_SESSION or SIGNED_IN.
+    // In Supabase v2, onAuthStateChange fires INITIAL_SESSION synchronously,
+    // and SIGNED_IN when a magic-link hash/PKCE code in the URL is exchanged.
+    // We drive `loading` exclusively from here so there is no race with getSession().
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signInWithEmail = async (email: string): Promise<{ error: Error | null }> => {
+    // emailRedirectTo must be just the origin so it matches Supabase's
+    // redirect allowlist entry regardless of the current path.
+    const redirectTo = window.location.origin;
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.href },
+      options: { emailRedirectTo: redirectTo },
     });
     return { error: error as Error | null };
   };
