@@ -138,7 +138,7 @@ export function BnplTracker() {
                 onChange={(e) => { setInstallments(e.target.value); setError(''); }}
               />
             </div>
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <label className="text-sm font-medium mb-1.5 block text-foreground">
                 Due Date <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
