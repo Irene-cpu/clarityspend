@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,15 +6,34 @@ import { Button } from '@/components/ui/button';
 import { Mail, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const COOLDOWN_SECONDS = 60;
+
 export default function Login() {
   const { signInWithEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    timerRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current!);
+  }, [cooldown > 0]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cooldown > 0) return;
     setError('');
     setLoading(true);
     const { error } = await signInWithEmail(email.trim());
@@ -28,6 +47,7 @@ export default function Login() {
       }
     } else {
       setSent(true);
+      setCooldown(COOLDOWN_SECONDS);
     }
   };
 
@@ -75,12 +95,44 @@ export default function Login() {
                   We sent a magic link to <strong className="text-foreground">{email}</strong>.
                   Click it to sign in — no password needed.
                 </p>
-                <button
-                  onClick={() => { setSent(false); setEmail(''); }}
-                  className="mt-4 text-xs text-primary hover:underline"
-                >
-                  Use a different email
-                </button>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  {cooldown > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Resend available in <span className="font-semibold tabular-nums">{cooldown}s</span>
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setError('');
+                        setLoading(true);
+                        const { error } = await signInWithEmail(email.trim());
+                        setLoading(false);
+                        if (error) {
+                          const msg = error.message.toLowerCase();
+                          setError(
+                            msg.includes('rate limit') || msg.includes('too many') || msg.includes('429')
+                              ? 'Too many requests — please wait a few minutes before trying again.'
+                              : error.message
+                          );
+                        } else {
+                          setCooldown(COOLDOWN_SECONDS);
+                        }
+                      }}
+                      disabled={loading}
+                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                    >
+                      {loading ? 'Sending…' : 'Resend link'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setSent(false); setEmail(''); }}
+                    className="text-xs text-muted-foreground hover:underline"
+                  >
+                    Use a different email
+                  </button>
+                </div>
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -118,9 +170,13 @@ export default function Login() {
                 <Button
                   type="submit"
                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                  disabled={loading || !email.trim()}
+                  disabled={loading || !email.trim() || cooldown > 0}
                 >
-                  {loading ? 'Sending link…' : 'Send magic link'}
+                  {loading
+                    ? 'Sending link…'
+                    : cooldown > 0
+                    ? `Resend in ${cooldown}s`
+                    : 'Send magic link'}
                 </Button>
 
                 <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
