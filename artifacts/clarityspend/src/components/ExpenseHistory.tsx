@@ -3,6 +3,17 @@ import { useSpendStore, ExpenseCategory } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Trash2, Receipt, ReceiptText, Users, Heart, Pencil } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,14 +57,34 @@ export function ExpenseHistory() {
             </div>
           </div>
           {expenses.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearExpenses}
-              className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/5 h-8 px-3"
-            >
-              Clear all
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/5 h-8 px-3"
+                >
+                  Clear all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear all expenses?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your expense entries. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={clearExpenses}
+                    className="bg-red-600 hover:bg-red-700 text-white focus-visible:ring-red-600"
+                  >
+                    Clear all
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
 
