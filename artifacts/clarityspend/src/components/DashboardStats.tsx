@@ -45,7 +45,7 @@ function StatCard({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={{ duration: 0.2 }}
-                className={`text-2xl font-bold mt-0.5 leading-tight transition-colors duration-500 ${s.value}`}
+                className={`text-lg sm:text-2xl font-bold mt-0.5 leading-tight transition-colors duration-500 ${s.value}`}
               >
                 {value}
               </motion.h4>
