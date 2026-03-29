@@ -273,8 +273,8 @@ export function DashboardStats() {
 
               <div className="relative mt-2 h-4">
                 <span className="absolute left-0 text-xs text-muted-foreground">RM 0</span>
-                <span className="absolute text-xs font-semibold text-emerald-500 whitespace-nowrap -translate-x-1/2" style={{ left: '60%' }}>60%</span>
-                <span className="absolute text-xs font-semibold text-red-400 whitespace-nowrap -translate-x-1/2" style={{ left: '90%' }}>90%</span>
+                <span className="absolute hidden min-[480px]:inline text-xs font-semibold text-emerald-500 whitespace-nowrap -translate-x-1/2" style={{ left: '60%' }}>60%</span>
+                <span className="absolute hidden min-[480px]:inline text-xs font-semibold text-red-400 whitespace-nowrap -translate-x-1/2" style={{ left: '90%' }}>90%</span>
                 <span className="absolute right-0 text-xs text-muted-foreground">{formatRM(progressBase)}</span>
               </div>
 
