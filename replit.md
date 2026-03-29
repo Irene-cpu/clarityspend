@@ -91,6 +91,26 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/clarityspend` (`@workspace/clarityspend`)
+
+Decision & Spending Awareness SPA. React + Vite, currency: RM (Malaysian Ringgit).
+
+**Auth**: Supabase magic-link (email OTP). `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` secrets required.
+- `src/lib/supabase.ts` — Supabase client singleton
+- `src/contexts/AuthContext.tsx` — session state, `signInWithEmail`, `signOut`
+- `src/pages/Login.tsx` — magic-link sign-in screen
+
+**State**: Zustand store without persistence (`src/store/use-spend-store.ts`). On login → `loadAll(userId)` fetches all 5 Supabase tables. Each mutation updates local state optimistically and fires a Supabase call asynchronously.
+
+**Supabase tables (RLS-enabled)**: `budget`, `expenses`, `bnpl_items`, `commitments`, `income_entries`
+
+**Features**: Budget setup · Income tracker · Expense tracker (Normal/SplitBill/Treat) · Spending dashboard · Decision assistant · BNPL tracker · Monthly commitments (mark-as-paid with reset on new month) · Upcoming payments · Expense history (edit/delete/clear with confirmation) · Monthly category chart with month navigation.
+
+**Key files**:
+- `src/pages/Home.tsx` — main view with logout button
+- `src/components/` — all feature components
+- `src/lib/utils.ts` — `formatRM()` currency formatter
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

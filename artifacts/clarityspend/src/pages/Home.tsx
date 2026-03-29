@@ -9,10 +9,13 @@ import { BnplTracker } from '@/components/BnplTracker';
 import { MonthlyCommitments } from '@/components/MonthlyCommitments';
 import { UpcomingPayments } from '@/components/UpcomingPayments';
 import { IncomeTracker } from '@/components/IncomeTracker';
-import { Sparkles } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Sparkles, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Home() {
+  const { user, signOut } = useAuth();
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header/Hero Section */}
@@ -24,6 +27,21 @@ export default function Home() {
         />
         {/* Gradient Overlay */}
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/40 to-background" />
+
+        {/* User bar — top right */}
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+          <span className="hidden sm:block text-xs text-muted-foreground font-medium truncate max-w-[180px]">
+            {user?.email}
+          </span>
+          <button
+            onClick={signOut}
+            title="Sign out"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/70 backdrop-blur-sm border border-white/50 text-muted-foreground hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors duration-150 shadow-sm"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+          </button>
+        </div>
         
         <div className="relative z-20 text-center px-4">
           <motion.div 
