@@ -9,15 +9,17 @@ import { BnplTracker } from '@/components/BnplTracker';
 import { MonthlyCommitments } from '@/components/MonthlyCommitments';
 import { UpcomingPayments } from '@/components/UpcomingPayments';
 import { IncomeTracker } from '@/components/IncomeTracker';
+import { SavingsGoals } from '@/components/SavingsGoals';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sparkles, LogOut, LayoutDashboard, Receipt, CalendarCheck, Wallet } from 'lucide-react';
+import { Sparkles, LogOut, LayoutDashboard, Receipt, CalendarCheck, Wallet, PiggyBank } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', id: 'section-dashboard', icon: LayoutDashboard },
-  { label: 'Expenses',  id: 'section-expenses',  icon: Receipt },
+  { label: 'Dashboard',   id: 'section-dashboard',   icon: LayoutDashboard },
+  { label: 'Expenses',    id: 'section-expenses',    icon: Receipt },
   { label: 'Commitments', id: 'section-commitments', icon: CalendarCheck },
-  { label: 'Income',    id: 'section-income',    icon: Wallet },
+  { label: 'Income',      id: 'section-income',      icon: Wallet },
+  { label: 'Savings',     id: 'section-savings',     icon: PiggyBank },
 ] as const;
 
 function StickyNav() {
@@ -168,6 +170,11 @@ export default function Home() {
               <section id="section-commitments" className="space-y-8 scroll-mt-20">
                 <MonthlyCommitments />
                 <BnplTracker />
+              </section>
+
+              {/* Savings section */}
+              <section id="section-savings" className="scroll-mt-20">
+                <SavingsGoals />
               </section>
 
               <DecisionAssistant />

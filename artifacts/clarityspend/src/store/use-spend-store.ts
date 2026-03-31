@@ -40,6 +40,13 @@ export interface IncomeEntry {
   recurring: boolean;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  savedAmount: number;
+}
+
 // ─── DB row mappers ───────────────────────────────────────────────────────────
 
 function mapDbExpense(row: Record<string, unknown>): Expense {
@@ -86,6 +93,15 @@ function mapDbIncome(row: Record<string, unknown>): IncomeEntry {
   };
 }
 
+function mapDbSavingsGoal(row: Record<string, unknown>): SavingsGoal {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    targetAmount: row.target_amount as number,
+    savedAmount: row.saved_amount as number,
+  };
+}
+
 // ─── Store interface ──────────────────────────────────────────────────────────
 
 interface SpendState {
@@ -96,6 +112,7 @@ interface SpendState {
   bnplItems: BnplItem[];
   commitments: Commitment[];
   incomeEntries: IncomeEntry[];
+  savingsGoals: SavingsGoal[];
   editingExpenseId: string | null;
 
   loadAll: (userId: string) => Promise<void>;
@@ -121,6 +138,10 @@ interface SpendState {
 
   addIncome: (entry: Omit<IncomeEntry, 'id'>) => void;
   removeIncome: (id: string) => void;
+
+  addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
+  updateSavingsGoal: (id: string, updates: Partial<Omit<SavingsGoal, 'id'>>) => void;
+  removeSavingsGoal: (id: string) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -133,6 +154,7 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
   bnplItems: [],
   commitments: [],
   incomeEntries: [],
+  savingsGoals: [],
   editingExpenseId: null,
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -145,12 +167,14 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
       { data: commitments },
       { data: income },
       { data: budget },
+      { data: savingsGoals },
     ] = await Promise.all([
       supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }),
       supabase.from('bnpl_items').select('*').eq('user_id', userId),
       supabase.from('commitments').select('*').eq('user_id', userId),
       supabase.from('income_entries').select('*').eq('user_id', userId),
       supabase.from('budget').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('savings_goals').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
     ]);
     set({
       expenses:      (expenses      ?? []).map(mapDbExpense),
@@ -158,6 +182,7 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
       commitments:   (commitments   ?? []).map(mapDbCommitment),
       incomeEntries: (income        ?? []).map(mapDbIncome),
       budget:        (budget as { amount: number } | null)?.amount ?? null,
+      savingsGoals:  (savingsGoals  ?? []).map(mapDbSavingsGoal),
       isLoading:     false,
     });
   },
@@ -169,6 +194,7 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
     bnplItems: [],
     commitments: [],
     incomeEntries: [],
+    savingsGoals: [],
     editingExpenseId: null,
   }),
 
@@ -395,6 +421,45 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
     if (!userId) return;
     supabase.from('income_entries').delete().eq('id', id)
       .then(({ error }) => { if (error) console.error('removeIncome:', error); });
+  },
+
+  // ── Savings Goals ──────────────────────────────────────────────────────────
+
+  addSavingsGoal: (goal) => {
+    const id = crypto.randomUUID();
+    const full: SavingsGoal = { ...goal, id };
+    set((state) => ({ savingsGoals: [...state.savingsGoals, full] }));
+    const { userId } = get();
+    if (!userId) return;
+    supabase.from('savings_goals').insert({
+      id,
+      user_id:       userId,
+      name:          full.name,
+      target_amount: full.targetAmount,
+      saved_amount:  full.savedAmount,
+    }).then(({ error }) => { if (error) console.error('addSavingsGoal:', error); });
+  },
+
+  updateSavingsGoal: (id, updates) => {
+    set((state) => ({
+      savingsGoals: state.savingsGoals.map((g) => g.id === id ? { ...g, ...updates } : g),
+    }));
+    const { userId } = get();
+    if (!userId) return;
+    const patch: Record<string, unknown> = {};
+    if (updates.name          !== undefined) patch.name          = updates.name;
+    if (updates.targetAmount  !== undefined) patch.target_amount = updates.targetAmount;
+    if (updates.savedAmount   !== undefined) patch.saved_amount  = updates.savedAmount;
+    supabase.from('savings_goals').update(patch).eq('id', id)
+      .then(({ error }) => { if (error) console.error('updateSavingsGoal:', error); });
+  },
+
+  removeSavingsGoal: (id) => {
+    set((state) => ({ savingsGoals: state.savingsGoals.filter((g) => g.id !== id) }));
+    const { userId } = get();
+    if (!userId) return;
+    supabase.from('savings_goals').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('removeSavingsGoal:', error); });
   },
 }));
 
