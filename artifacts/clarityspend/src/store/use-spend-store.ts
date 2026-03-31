@@ -22,6 +22,7 @@ export interface BnplItem {
   installments: number;
   monthlyPayment: number;
   dueDate?: string;
+  paidAt?: string;
 }
 
 export interface Commitment {
@@ -70,6 +71,7 @@ function mapDbBnpl(row: Record<string, unknown>): BnplItem {
     installments: row.installments as number,
     monthlyPayment: row.monthly_payment as number,
     dueDate: row.due_date as string | undefined,
+    paidAt: row.paid_at as string | undefined,
   };
 }
 
@@ -129,6 +131,8 @@ interface SpendState {
   addBnplItem: (item: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
   updateBnplItem: (id: string, updates: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
   removeBnplItem: (id: string) => void;
+  toggleBnplPaid: (id: string) => void;
+  resetPaidBnplForNewMonth: () => void;
 
   addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
   updateCommitment: (id: string, updates: Omit<Commitment, 'id'>) => void;
@@ -313,6 +317,49 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
     if (!userId) return;
     supabase.from('bnpl_items').delete().eq('id', id)
       .then(({ error }) => { if (error) console.error('removeBnplItem:', error); });
+  },
+
+  toggleBnplPaid: (id) => {
+    const item = get().bnplItems.find((b) => b.id === id);
+    if (!item) return;
+    const newPaidAt = item.paidAt ? undefined : new Date().toISOString();
+    set((state) => ({
+      bnplItems: state.bnplItems.map((b) =>
+        b.id === id ? { ...b, paidAt: newPaidAt } : b
+      ),
+    }));
+    const { userId } = get();
+    if (!userId) return;
+    supabase.from('bnpl_items').update({ paid_at: newPaidAt ?? null }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('toggleBnplPaid:', error); });
+  },
+
+  resetPaidBnplForNewMonth: () => {
+    const now = new Date();
+    const cm = now.getMonth();
+    const cy = now.getFullYear();
+    const { bnplItems, userId } = get();
+    const toReset = bnplItems.filter((b) => {
+      if (!b.paidAt) return false;
+      const paid = new Date(b.paidAt);
+      return paid.getMonth() !== cm || paid.getFullYear() !== cy;
+    });
+    if (toReset.length === 0) return;
+    set((state) => ({
+      bnplItems: state.bnplItems.map((b) =>
+        toReset.some((r) => r.id === b.id) ? { ...b, paidAt: undefined } : b
+      ),
+    }));
+    if (!userId) return;
+    Promise.all(
+      toReset.map((b) =>
+        supabase.from('bnpl_items').update({ paid_at: null }).eq('id', b.id)
+      )
+    ).then((results) => {
+      results.forEach(({ error }, i) => {
+        if (error) console.error(`resetPaidBnpl[${toReset[i].id}]:`, error);
+      });
+    });
   },
 
   // ── Commitments ────────────────────────────────────────────────────────────

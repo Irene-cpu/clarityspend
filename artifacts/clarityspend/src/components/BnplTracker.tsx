@@ -4,12 +4,19 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays, Pencil, X } from 'lucide-react';
+import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays, Pencil, X, CheckCircle2, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 
 export function BnplTracker() {
-  const { budget, bnplItems, addBnplItem, updateBnplItem, removeBnplItem } = useSpendStore();
+  const { budget, bnplItems, addBnplItem, updateBnplItem, removeBnplItem, toggleBnplPaid } = useSpendStore();
+
+  function isPaidThisMonth(paidAt?: string): boolean {
+    if (!paidAt) return false;
+    const d = new Date(paidAt);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }
 
   const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
@@ -205,6 +212,7 @@ export function BnplTracker() {
                 <AnimatePresence>
                   {bnplItems.map((item) => {
                     const isBeingEdited = editingId === item.id;
+                    const paid = isPaidThisMonth(item.paidAt);
                     return (
                       <motion.div
                         key={item.id}
@@ -215,14 +223,29 @@ export function BnplTracker() {
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 ${
                           isBeingEdited
                             ? 'bg-amber-50 border-amber-300'
+                            : paid
+                            ? 'bg-emerald-50 border-emerald-200 opacity-75'
                             : 'bg-slate-50 border-slate-100'
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isBeingEdited ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-600'}`}>
-                          <CreditCard className="w-3.5 h-3.5" />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          isBeingEdited ? 'bg-amber-100 text-amber-600'
+                          : paid ? 'bg-emerald-100 text-emerald-600'
+                          : 'bg-sky-100 text-sky-600'
+                        }`}>
+                          {paid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`text-sm font-semibold truncate ${paid ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                              {item.name}
+                            </p>
+                            {paid && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-200 text-emerald-800 shrink-0">
+                                Paid this month
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                             {item.dueDate
                               ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(item.dueDate), 'd MMM yyyy')} · {item.installments} months</>
@@ -231,8 +254,24 @@ export function BnplTracker() {
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-sky-700">{formatRM(item.monthlyPayment)}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                          <p className={`text-sm font-bold tabular-nums ${paid ? 'text-muted-foreground' : 'text-sky-700'}`}>
+                            {formatRM(item.monthlyPayment)}
+                            <span className="text-xs font-normal text-muted-foreground">/mo</span>
+                          </p>
                         </div>
+                        {/* Mark as paid / undo */}
+                        <button
+                          onClick={() => toggleBnplPaid(item.id)}
+                          aria-label={paid ? 'Undo paid' : 'Mark as paid'}
+                          title={paid ? 'Undo paid' : 'Mark as paid'}
+                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                            paid
+                              ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'
+                              : 'text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {paid ? <RotateCcw className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </button>
                         <button
                           onClick={() => startEdit(item.id)}
                           aria-label="Edit plan"
