@@ -63,25 +63,37 @@ function StatCard({
 export function DashboardStats() {
   const { budget, expenses, bnplItems, commitments, incomeEntries } = useSpendStore();
 
-  // ── Core numbers ──────────────────────────────────────────────────────────────
-  // Expenses: SplitBill counts user share only
-  const totalSpent         = expenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
+  // ── Current-month filter — ALL expense figures use this window ─────────────────
+  // Income, commitments, and BNPL are already monthly; expenses must match.
+  const now = new Date();
+  const cm  = now.getMonth();
+  const cy  = now.getFullYear();
+
+  const monthExpenses = expenses.filter((e) => {
+    const d = new Date(e.date);
+    return d.getMonth() === cm && d.getFullYear() === cy;
+  });
+
+  // ── Core numbers — every figure is for the current month ──────────────────────
+  // SplitBill uses the user's share; Normal and Treat use the full amount.
+  const totalSpent         = monthExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
   const totalBnplMonthly   = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const totalCommitments   = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
   const hasIncome          = incomeEntries.length > 0;
 
-  // ── Two-step calculation ──────────────────────────────────────────────────────
-  // All fixed obligations: monthly commitments + BNPL installments
-  const totalObligations       = totalCommitments + totalBnplMonthly;
-  // Step 1: what's left after paying commitments
-  const availableAfterCommit   = totalMonthlyIncome - totalObligations;
-  // Step 2: what's left after also paying variable expenses
-  const remainingMoney         = availableAfterCommit - totalSpent;
+  // ── Two-step calculation (all monthly) ───────────────────────────────────────
+  // Fixed obligations: recurring commitments + BNPL installments
+  const totalObligations     = totalCommitments + totalBnplMonthly;
+  // Step 1: what's left after fixed obligations
+  const availableAfterCommit = totalMonthlyIncome - totalObligations;
+  // Step 2: what's left after this month's variable spending
+  // sum(category totals) will always equal totalSpent — no double counting
+  const remainingMoney       = availableAfterCommit - totalSpent;
 
   // ── Today's spending ─────────────────────────────────────────────────────────
-  const todayStr      = new Date().toDateString();
-  const todayExpenses = expenses.filter((e) => new Date(e.date).toDateString() === todayStr);
+  const todayStr      = now.toDateString();
+  const todayExpenses = monthExpenses.filter((e) => new Date(e.date).toDateString() === todayStr);
   const todaySpent    = todayExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
 
   // ── Status thresholds ─────────────────────────────────────────────────────────
@@ -112,8 +124,8 @@ export function DashboardStats() {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <StatCard icon={<TrendingDown className="w-5 h-5" />} label="Total Spent This Month" value={formatRM(totalSpent)}
-            subtext={expenses.length === 0 ? 'No expenses logged yet' : `Across ${expenses.length} ${expenses.length === 1 ? 'expense' : 'expenses'}`}
+          <StatCard icon={<TrendingDown className="w-5 h-5" />} label="Spent This Month" value={formatRM(totalSpent)}
+            subtext={monthExpenses.length === 0 ? 'No expenses this month' : `Across ${monthExpenses.length} ${monthExpenses.length === 1 ? 'expense' : 'expenses'}`}
             colorScheme="amber" delay={0} />
           <StatCard icon={<CalendarDays className="w-5 h-5" />} label="Today's Spending" value={formatRM(todaySpent)}
             subtext={todayExpenses.length === 0 ? 'No expenses today' : `${todayExpenses.length} ${todayExpenses.length === 1 ? 'expense' : 'expenses'} today`}
@@ -207,12 +219,12 @@ export function DashboardStats() {
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           icon={<TrendingDown className="w-5 h-5" />}
-          label="Total Spent (Expenses)"
+          label="Spent This Month"
           value={formatRM(totalSpent)}
           subtext={
             progressBase > 0
-              ? `${Math.min(percentageUsed, 999).toFixed(1)}% of income used overall`
-              : `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} logged`
+              ? `${Math.min(percentageUsed, 999).toFixed(1)}% of income used`
+              : `${monthExpenses.length} expense${monthExpenses.length !== 1 ? 's' : ''} this month`
           }
           colorScheme="amber"
           delay={0.22}
@@ -279,9 +291,9 @@ export function DashboardStats() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Monthly Income Usage</p>
+                  <p className="text-sm font-semibold text-foreground">This Month's Usage</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Commitments {formatRM(totalObligations)} + Expenses {formatRM(totalSpent)} of {formatRM(progressBase)}
+                    Commitments {formatRM(totalObligations)} + Expenses {formatRM(totalSpent)} of {formatRM(progressBase)} income
                   </p>
                 </div>
                 <AnimatePresence mode="wait">
