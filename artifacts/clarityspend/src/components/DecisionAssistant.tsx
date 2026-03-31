@@ -45,7 +45,16 @@ export function DecisionAssistant() {
   const [price, setPrice] = useState('');
   const [result, setResult] = useState<EvalResult | null>(null);
 
-  const totalSpent        = expenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
+  // Current month only — matches DashboardStats and CategoryBudgets
+  const now = new Date();
+  const cm  = now.getMonth();
+  const cy  = now.getFullYear();
+  const monthExpenses = expenses.filter((e) => {
+    const d = new Date(e.date);
+    return d.getMonth() === cm && d.getFullYear() === cy;
+  });
+
+  const totalSpent        = monthExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
   const totalBnplMonthly  = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const totalCommitments  = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
