@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { supabase } from '@/lib/supabase';
 
 export type ExpenseCategory = 'Food' | 'Transportation' | 'Shopping' | 'Bills' | 'Entertainment' | 'Other' | 'Savings';
@@ -154,7 +155,9 @@ interface SpendState {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useSpendStore = create<SpendState>()((set, get) => ({
+export const useSpendStore = create<SpendState>()(
+  persist(
+    (set, get) => ({
   userId: null,
   isLoading: false,
   budget: null,
@@ -187,20 +190,28 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
       supabase.from('savings_goals').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
       supabase.from('category_budgets').select('*').eq('user_id', userId),
     ]);
-    const categoryBudgets: CategoryBudgetMap = {};
-    (catBudgets ?? []).forEach((row: Record<string, unknown>) => {
-      categoryBudgets[row.category as ExpenseCategory] = row.budget as number;
-    });
-    set({
-      expenses:       (expenses      ?? []).map(mapDbExpense),
-      bnplItems:      (bnpl          ?? []).map(mapDbBnpl),
-      commitments:    (commitments   ?? []).map(mapDbCommitment),
-      incomeEntries:  (income        ?? []).map(mapDbIncome),
-      budget:         (budget as { amount: number } | null)?.amount ?? null,
-      savingsGoals:   (savingsGoals  ?? []).map(mapDbSavingsGoal),
-      categoryBudgets,
-      isLoading:      false,
-    });
+    // Build the Supabase-sourced update
+    const update: Partial<SpendState> & { isLoading: boolean } = {
+      expenses:      (expenses      ?? []).map(mapDbExpense),
+      bnplItems:     (bnpl          ?? []).map(mapDbBnpl),
+      commitments:   (commitments   ?? []).map(mapDbCommitment),
+      incomeEntries: (income        ?? []).map(mapDbIncome),
+      budget:        (budget as { amount: number } | null)?.amount ?? null,
+      savingsGoals:  (savingsGoals  ?? []).map(mapDbSavingsGoal),
+      isLoading:     false,
+    };
+
+    // Only overwrite categoryBudgets if Supabase returned rows.
+    // If the table doesn't exist yet, keep whatever persist/localStorage already loaded.
+    if (catBudgets && catBudgets.length > 0) {
+      const dbCatBudgets: CategoryBudgetMap = {};
+      (catBudgets as Record<string, unknown>[]).forEach((row) => {
+        dbCatBudgets[row.category as ExpenseCategory] = row.budget as number;
+      });
+      update.categoryBudgets = dbCatBudgets;
+    }
+
+    set(update);
   },
 
   clearAll: () => set({
@@ -544,7 +555,21 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
     supabase.from('savings_goals').delete().eq('id', id)
       .then(({ error }) => { if (error) console.error('removeSavingsGoal:', error); });
   },
-}));
+}),
+{
+  name: 'clarityspend-data',
+  storage: createJSONStorage(() => localStorage),
+  partialize: (state) => ({
+    budget:         state.budget,
+    expenses:       state.expenses,
+    bnplItems:      state.bnplItems,
+    commitments:    state.commitments,
+    incomeEntries:  state.incomeEntries,
+    savingsGoals:   state.savingsGoals,
+    categoryBudgets: state.categoryBudgets,
+  }),
+}
+));
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
