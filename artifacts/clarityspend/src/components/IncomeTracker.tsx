@@ -4,7 +4,7 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TrendingUp, Trash2, Plus, RefreshCw, CalendarDays } from 'lucide-react';
+import { TrendingUp, Trash2, Plus, RefreshCw, CalendarDays, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday, parseISO } from 'date-fns';
 
@@ -46,16 +46,21 @@ export function IncomeTracker() {
   };
 
   return (
-    <Card className="overflow-hidden bg-white">
-      <div className="h-1 w-full bg-emerald-400" />
+    <Card className="overflow-hidden" style={{ background: 'linear-gradient(135deg, #fffdf5 0%, #fffbeb 100%)' }}>
+      {/* Gold accent bar */}
+      <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #b7882c, #D4AF37, #e8c84a, #D4AF37, #b7882c)' }} />
+
       <CardContent className="p-6">
 
         {/* Header */}
         <div className="flex items-center gap-2.5 mb-1">
-          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-4 h-4" />
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#92690a' }}
+          >
+            <Coins className="w-4 h-4" />
           </div>
-          <h2 className="text-lg font-bold text-foreground">Income Tracker</h2>
+          <h2 className="text-lg font-bold" style={{ color: '#7a5a0a' }}>Income Tracker</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
           Track your income sources. Recurring entries count every month; one-time entries count only in their month.
@@ -68,7 +73,18 @@ export function IncomeTracker() {
               key={s}
               type="button"
               onClick={() => setSource(s)}
-              className="text-xs px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+              className="text-xs px-2.5 py-1 rounded-full border transition-colors"
+              style={{
+                borderColor: '#e8c84a',
+                backgroundColor: '#fffbeb',
+                color: '#92690a',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fef3c7';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fffbeb';
+              }}
             >
               {s}
             </button>
@@ -114,15 +130,20 @@ export function IncomeTracker() {
           <button
             type="button"
             onClick={() => setRecurring((r) => !r)}
-            className={`flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
-              recurring
-                ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
-                : 'border-slate-200 bg-slate-50 text-muted-foreground hover:border-emerald-200 hover:bg-emerald-50/50'
-            }`}
+            className="flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-200"
+            style={{
+              borderColor: recurring ? '#D4AF37' : '#e5e7eb',
+              backgroundColor: recurring ? '#fffbeb' : '#f9fafb',
+              color: recurring ? '#7a5a0a' : '#6b7280',
+            }}
           >
-            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-              recurring ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'
-            }`}>
+            <div
+              className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+              style={{
+                backgroundColor: recurring ? '#D4AF37' : 'transparent',
+                borderColor: recurring ? '#D4AF37' : '#d1d5db',
+              }}
+            >
               {recurring && (
                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10">
                   <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -132,7 +153,10 @@ export function IncomeTracker() {
             <RefreshCw className="w-3.5 h-3.5 shrink-0" />
             <span>Recurring monthly income</span>
             {recurring && (
-              <span className="ml-auto text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+              <span
+                className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: '#fde68a', color: '#7a5a0a' }}
+              >
                 Every month
               </span>
             )}
@@ -142,7 +166,8 @@ export function IncomeTracker() {
 
           <Button
             type="submit"
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="w-full text-white font-semibold shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #c49b22, #D4AF37)', border: 'none' }}
             disabled={!source.trim() || !amount}
           >
             <Plus className="w-4 h-4 mr-1.5" />
@@ -174,16 +199,23 @@ export function IncomeTracker() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
                         transition={{ duration: 0.22 }}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+                        style={{ backgroundColor: '#fffdf5', borderColor: '#fde68a' }}
                       >
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: '#fef3c7', color: '#b7882c' }}
+                        >
                           <TrendingUp className="w-3.5 h-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-semibold text-foreground truncate">{entry.source}</p>
                             {entry.recurring && (
-                              <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                              <span
+                                className="text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1"
+                                style={{ backgroundColor: '#fde68a', color: '#7a5a0a' }}
+                              >
                                 <RefreshCw className="w-2.5 h-2.5" />Monthly
                               </span>
                             )}
@@ -194,7 +226,7 @@ export function IncomeTracker() {
                             {showTime && <><span className="opacity-40">·</span>{format(d, 'h:mm a')}</>}
                           </p>
                         </div>
-                        <p className="text-sm font-bold text-emerald-700 tabular-nums shrink-0">
+                        <p className="text-sm font-bold tabular-nums shrink-0" style={{ color: '#b7882c' }}>
                           +{formatRM(entry.amount)}
                           {entry.recurring && <span className="text-xs font-normal text-muted-foreground">/mo</span>}
                         </p>
@@ -212,14 +244,17 @@ export function IncomeTracker() {
               </div>
 
               {/* Monthly total */}
-              <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-emerald-50 border-2 border-emerald-200">
+              <div
+                className="flex items-center justify-between px-4 py-3 rounded-xl border-2"
+                style={{ backgroundColor: '#fffbeb', borderColor: '#D4AF37' }}
+              >
                 <div>
-                  <p className="text-sm font-bold text-emerald-800">Total Monthly Income</p>
-                  <p className="text-xs text-emerald-600 mt-0.5">
+                  <p className="text-sm font-bold" style={{ color: '#7a5a0a' }}>Total Monthly Income</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#92690a' }}>
                     Recurring + this month's one-time income
                   </p>
                 </div>
-                <p className="text-xl font-bold tabular-nums text-emerald-700">
+                <p className="text-xl font-bold tabular-nums" style={{ color: '#b7882c' }}>
                   +{formatRM(totalMonthlyIncome)}
                 </p>
               </div>
