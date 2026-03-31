@@ -8,17 +8,14 @@ import { PiggyBank, Trash2, Plus, Pencil, X, CheckCircle2, TrendingUp } from 'lu
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function SavingsGoals() {
-  const { savingsGoals, addSavingsGoal, updateSavingsGoal, removeSavingsGoal } = useSpendStore();
+  const { savingsGoals, addSavingsGoal, updateSavingsGoal, removeSavingsGoal, addExpense } = useSpendStore();
 
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [savedAmount, setSavedAmount] = useState('');
   const [error, setError] = useState('');
 
-  // Which goal is being fully edited (name + amounts)
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  // Inline "update progress" — just the saved amount field
   const [progressEditId, setProgressEditId] = useState<string | null>(null);
   const [progressValue, setProgressValue] = useState('');
 
@@ -47,17 +44,32 @@ export function SavingsGoals() {
     const g = savingsGoals.find((x) => x.id === id);
     if (!g) return;
     setProgressEditId(id);
-    setProgressValue(String(g.savedAmount));
+    setProgressValue('');
     setEditingId(null);
     resetForm();
   };
 
+  /** Save an inline progress update. Creates an expense for any positive delta. */
   const saveProgress = (id: string) => {
-    const val = parseFloat(progressValue);
-    if (isNaN(val) || val < 0) return;
+    const delta = parseFloat(progressValue);
+    if (isNaN(delta) || delta <= 0) return;
     const goal = savingsGoals.find((g) => g.id === id);
     if (!goal) return;
-    updateSavingsGoal(id, { savedAmount: Math.min(val, goal.targetAmount) });
+
+    const newSaved = Math.min(goal.savedAmount + delta, goal.targetAmount);
+    const actualDelta = newSaved - goal.savedAmount;
+
+    if (actualDelta > 0) {
+      updateSavingsGoal(id, { savedAmount: newSaved });
+      addExpense({
+        name: `Savings: ${goal.name}`,
+        amount: actualDelta,
+        category: 'Savings',
+        paymentType: 'Normal',
+        date: new Date().toISOString(),
+      });
+    }
+
     setProgressEditId(null);
     setProgressValue('');
   };
@@ -67,16 +79,37 @@ export function SavingsGoals() {
     setError('');
     const target = parseFloat(targetAmount);
     const saved  = parseFloat(savedAmount || '0');
-    if (!name.trim())             { setError('Please enter a goal name.'); return; }
+    if (!name.trim())                 { setError('Please enter a goal name.'); return; }
     if (isNaN(target) || target <= 0) { setError('Enter a valid target amount.'); return; }
     if (isNaN(saved)  || saved < 0)   { setError('Saved amount cannot be negative.'); return; }
-    if (saved > target)           { setError('Saved amount cannot exceed target.'); return; }
+    if (saved > target)               { setError('Saved amount cannot exceed target.'); return; }
 
     if (isEditing && editingId) {
+      const oldGoal = savingsGoals.find((g) => g.id === editingId);
+      const oldSaved = oldGoal?.savedAmount ?? 0;
       updateSavingsGoal(editingId, { name: name.trim(), targetAmount: target, savedAmount: saved });
+      const delta = saved - oldSaved;
+      if (delta > 0) {
+        addExpense({
+          name: `Savings: ${name.trim()}`,
+          amount: delta,
+          category: 'Savings',
+          paymentType: 'Normal',
+          date: new Date().toISOString(),
+        });
+      }
       resetForm();
     } else {
       addSavingsGoal({ name: name.trim(), targetAmount: target, savedAmount: saved });
+      if (saved > 0) {
+        addExpense({
+          name: `Savings: ${name.trim()}`,
+          amount: saved,
+          category: 'Savings',
+          paymentType: 'Normal',
+          date: new Date().toISOString(),
+        });
+      }
       resetForm();
     }
   };
@@ -98,7 +131,7 @@ export function SavingsGoals() {
           <h2 className="text-lg font-bold text-foreground">Savings Goals</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Set a target, track your progress, and update your savings anytime.
+          Every amount you add is counted as a savings expense and deducted from your remaining balance.
         </p>
 
         {/* Edit banner */}
@@ -144,7 +177,7 @@ export function SavingsGoals() {
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block text-foreground">
-                Currently Saved <span className="text-muted-foreground font-normal">(optional)</span>
+                Initial Saved <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <Input
                 type="number"
@@ -208,7 +241,7 @@ export function SavingsGoals() {
                         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                         transition={{ duration: 0.22 }}
                         className={`rounded-xl border p-4 transition-colors duration-150 ${
-                          beingEdited  ? 'bg-amber-50 border-amber-300'  :
+                          beingEdited  ? 'bg-amber-50 border-amber-300'     :
                           completed    ? 'bg-emerald-50 border-emerald-300' :
                           'bg-slate-50 border-slate-100'
                         }`}
@@ -280,56 +313,62 @@ export function SavingsGoals() {
                           </div>
                           {!completed && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              {formatRM(remaining)} remaining
+                              {formatRM(remaining)} remaining to target
                             </p>
                           )}
                         </div>
 
-                        {/* Inline progress update */}
+                        {/* Inline progress update — user enters AMOUNT TO ADD, not total */}
                         {progressEditId === goal.id ? (
-                          <div className="mt-3 flex items-center gap-2">
-                            <Input
-                              type="number"
-                              min="0"
-                              max={goal.targetAmount}
-                              step="0.01"
-                              value={progressValue}
-                              onChange={(e) => setProgressValue(e.target.value)}
-                              placeholder="New saved amount"
-                              icon={<span className="font-bold text-foreground text-sm">RM</span>}
-                              className="pl-11 h-8 text-sm flex-1"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') { e.preventDefault(); saveProgress(goal.id); }
-                                if (e.key === 'Escape') { setProgressEditId(null); }
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => saveProgress(goal.id)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3"
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setProgressEditId(null)}
-                              className="h-8 px-2"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
+                          <div className="mt-3 space-y-1.5">
+                            <p className="text-xs text-muted-foreground">
+                              How much are you adding today? This will be recorded as a Savings expense.
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0.01"
+                                max={goal.targetAmount - goal.savedAmount}
+                                step="0.01"
+                                value={progressValue}
+                                onChange={(e) => setProgressValue(e.target.value)}
+                                placeholder="Amount to add"
+                                icon={<span className="font-bold text-foreground text-sm">RM</span>}
+                                className="pl-11 h-8 text-sm flex-1"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter')  { e.preventDefault(); saveProgress(goal.id); }
+                                  if (e.key === 'Escape') { setProgressEditId(null); }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => saveProgress(goal.id)}
+                                disabled={!progressValue || parseFloat(progressValue) <= 0}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3"
+                              >
+                                Add
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setProgressEditId(null)}
+                                className="h-8 px-2"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
                           </div>
                         ) : (
-                          !beingEdited && (
+                          !beingEdited && !completed && (
                             <button
                               onClick={() => startProgressEdit(goal.id)}
                               className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-900 transition-colors"
                             >
                               <TrendingUp className="w-3.5 h-3.5" />
-                              Update progress
+                              Add money to this goal
                             </button>
                           )
                         )}

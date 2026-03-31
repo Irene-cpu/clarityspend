@@ -14,6 +14,7 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   Bills:          '#fb923c',
   Entertainment:  '#f472b6',
   Other:          '#94a3b8',
+  Savings:        '#10b981',
 };
 
 interface ChartEntry {
