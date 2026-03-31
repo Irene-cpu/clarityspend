@@ -3,8 +3,9 @@ import { useSpendStore, calcMonthlyIncome } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Wallet, TrendingDown, PiggyBank, AlertCircle, CheckCircle2,
-  TrendingUp, AlertTriangle, CalendarDays,
+  Wallet, TrendingDown, PiggyBank, AlertCircle,
+  CheckCircle2, TrendingUp, AlertTriangle, CalendarDays,
+  Landmark, ArrowRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,14 +16,15 @@ function StatCard({
   label: string;
   value: string;
   subtext?: string;
-  colorScheme: 'blue' | 'amber' | 'green' | 'orange' | 'red' | 'violet' | 'emerald';
+  colorScheme: 'blue' | 'amber' | 'green' | 'orange' | 'red' | 'violet' | 'emerald' | 'indigo';
   delay?: number;
 }) {
   const schemes = {
-    blue:    { card: 'bg-white', icon: 'bg-blue-50 text-blue-600',     value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-blue-500' },
-    amber:   { card: 'bg-white', icon: 'bg-amber-50 text-amber-600',   value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-amber-500' },
-    violet:  { card: 'bg-white', icon: 'bg-violet-50 text-violet-600', value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-violet-500' },
+    blue:    { card: 'bg-white', icon: 'bg-blue-50 text-blue-600',       value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-blue-500' },
+    amber:   { card: 'bg-white', icon: 'bg-amber-50 text-amber-600',     value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-amber-500' },
+    violet:  { card: 'bg-white', icon: 'bg-violet-50 text-violet-600',   value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-violet-500' },
     emerald: { card: 'bg-white', icon: 'bg-emerald-50 text-emerald-600', value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-emerald-500' },
+    indigo:  { card: 'bg-white', icon: 'bg-indigo-50 text-indigo-600',   value: 'text-foreground', subtext: 'text-muted-foreground', accent: 'bg-indigo-500' },
     green:   { card: 'bg-emerald-50 border-emerald-200', icon: 'bg-emerald-100 text-emerald-700', value: 'text-emerald-800', subtext: 'text-emerald-600/80', accent: 'bg-emerald-500' },
     orange:  { card: 'bg-orange-50 border-orange-200',  icon: 'bg-orange-100 text-orange-700',   value: 'text-orange-800',  subtext: 'text-orange-600/80',  accent: 'bg-orange-500' },
     red:     { card: 'bg-red-50 border-red-200',         icon: 'bg-red-100 text-red-700',         value: 'text-red-800',     subtext: 'text-red-600/80',     accent: 'bg-red-500' },
@@ -61,42 +63,51 @@ function StatCard({
 export function DashboardStats() {
   const { budget, expenses, bnplItems, commitments, incomeEntries } = useSpendStore();
 
-  // For totals, SplitBill expenses count only the user's share; Normal and Treat use full amount
+  // ── Core numbers ──────────────────────────────────────────────────────────────
+  // Expenses: SplitBill counts user share only
   const totalSpent         = expenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
   const totalBnplMonthly   = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const totalCommitments   = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
   const hasIncome          = incomeEntries.length > 0;
 
-  const todayStr       = new Date().toDateString();
-  const todayExpenses  = expenses.filter((e) => new Date(e.date).toDateString() === todayStr);
-  const todaySpent     = todayExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
+  // ── Two-step calculation ──────────────────────────────────────────────────────
+  // All fixed obligations: monthly commitments + BNPL installments
+  const totalObligations       = totalCommitments + totalBnplMonthly;
+  // Step 1: what's left after paying commitments
+  const availableAfterCommit   = totalMonthlyIncome - totalObligations;
+  // Step 2: what's left after also paying variable expenses
+  const remainingMoney         = availableAfterCommit - totalSpent;
 
-  // Primary figure: income if set, otherwise budget
-  const primaryBase    = hasIncome ? totalMonthlyIncome : (budget ?? 0);
-  const effectiveRemaining = primaryBase - totalSpent - totalBnplMonthly - totalCommitments;
-  const isOverBudget   = effectiveRemaining < 0;
+  // ── Today's spending ─────────────────────────────────────────────────────────
+  const todayStr      = new Date().toDateString();
+  const todayExpenses = expenses.filter((e) => new Date(e.date).toDateString() === todayStr);
+  const todaySpent    = todayExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
 
-  // Progress bar thresholds (against budget if set, otherwise against income)
-  const progressBase   = budget ?? (hasIncome ? totalMonthlyIncome : 0);
-  const percentageUsed = progressBase > 0
-    ? ((totalSpent + totalBnplMonthly + totalCommitments) / progressBase) * 100
+  // ── Status thresholds ─────────────────────────────────────────────────────────
+  const isOverall        = remainingMoney < 0;
+  const isAvailNeg       = availableAfterCommit < 0;
+  const progressBase     = hasIncome ? totalMonthlyIncome : (budget ?? 0);
+  const percentageUsed   = progressBase > 0
+    ? ((totalSpent + totalObligations) / progressBase) * 100
     : 0;
   const clampedPct = Math.min(percentageUsed, 100);
 
   const barLevel: 'green' | 'orange' | 'red' =
-    percentageUsed >= 90 || isOverBudget ? 'red'
+    percentageUsed >= 90 || isOverall ? 'red'
     : percentageUsed >= 60 ? 'orange'
     : 'green';
 
-  const isWarning        = !isOverBudget && percentageUsed >= 80;
-  const remainingScheme  = isOverBudget ? 'red' : barLevel === 'red' ? 'red' : barLevel === 'orange' ? 'orange' : 'green';
-  const progressColor    = barLevel === 'red' ? 'bg-red-500' : barLevel === 'orange' ? 'bg-orange-400' : 'bg-emerald-500';
-  const progressTrack    = barLevel === 'red' ? 'bg-red-100' : barLevel === 'orange' ? 'bg-orange-100' : 'bg-emerald-100';
-  const pctTextColor     = barLevel === 'red' ? 'text-red-600' : barLevel === 'orange' ? 'text-orange-500' : 'text-emerald-600';
-  const statusTextColor  = barLevel === 'red' ? 'text-red-600' : barLevel === 'orange' ? 'text-orange-500' : 'text-emerald-600';
+  const isWarning       = !isOverall && percentageUsed >= 80;
+  const progressColor   = barLevel === 'red' ? 'bg-red-500' : barLevel === 'orange' ? 'bg-orange-400' : 'bg-emerald-500';
+  const progressTrack   = barLevel === 'red' ? 'bg-red-100' : barLevel === 'orange' ? 'bg-orange-100' : 'bg-emerald-100';
+  const pctTextColor    = barLevel === 'red' ? 'text-red-600' : barLevel === 'orange' ? 'text-orange-500' : 'text-emerald-600';
+  const statusTextColor = pctTextColor;
 
-  // ── No income, no budget: minimal view ──────────────────────────────────────
+  const availScheme: 'green' | 'orange' | 'red' = isAvailNeg ? 'red' : availableAfterCommit < totalMonthlyIncome * 0.2 ? 'orange' : 'green';
+  const remainScheme: 'green' | 'orange' | 'red' = isOverall ? 'red' : remainingMoney < totalMonthlyIncome * 0.1 ? 'orange' : 'green';
+
+  // ── No income, no budget: minimal view ───────────────────────────────────────
   if (!hasIncome && budget === null) {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }} className="space-y-4">
@@ -113,9 +124,9 @@ export function DashboardStats() {
             <Wallet className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-blue-800">No income or budget set</p>
+            <p className="text-sm font-semibold text-blue-800">Set up your income to unlock full insights</p>
             <p className="text-xs text-blue-600 mt-0.5">
-              Add income sources below or set a monthly budget above to unlock spending insights and remaining money tracking.
+              Add income sources in the Income section to automatically calculate how much is available after commitments and what's remaining after expenses.
             </p>
           </div>
         </div>
@@ -123,108 +134,136 @@ export function DashboardStats() {
     );
   }
 
-  // ── Main 4-card view ────────────────────────────────────────────────────────
+  // ── Main view ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Income (if set) or Budget */}
-        {hasIncome ? (
-          <StatCard
-            icon={<TrendingUp className="w-5 h-5" />}
-            label="Monthly Income"
-            value={formatRM(totalMonthlyIncome)}
-            subtext={`${incomeEntries.filter((e) => e.recurring).length} recurring + one-time`}
-            colorScheme="emerald"
-            delay={0}
-          />
-        ) : (
-          <StatCard
-            icon={<Wallet className="w-5 h-5" />}
-            label="Monthly Budget"
-            value={formatRM(budget ?? 0)}
-            subtext="Your set spending limit"
-            colorScheme="blue"
-            delay={0}
-          />
-        )}
 
-        {/* Card 2: Total Spent */}
+      {/* Row 1: Income & Commitments */}
+      <div className="grid grid-cols-2 gap-4">
         <StatCard
-          icon={<TrendingDown className="w-5 h-5" />}
-          label="Total Spent"
-          value={formatRM(totalSpent)}
-          subtext={progressBase > 0 ? `${Math.min(percentageUsed, 999).toFixed(1)}% of ${hasIncome ? 'income' : 'budget'} used` : undefined}
-          colorScheme="amber"
+          icon={<TrendingUp className="w-5 h-5" />}
+          label="Monthly Income"
+          value={formatRM(totalMonthlyIncome)}
+          subtext={`${incomeEntries.filter((e) => e.recurring).length} recurring + one-time`}
+          colorScheme="emerald"
+          delay={0}
+        />
+        <StatCard
+          icon={<Landmark className="w-5 h-5" />}
+          label="Total Commitments"
+          value={formatRM(totalObligations)}
+          subtext={`${commitments.length} commitment${commitments.length !== 1 ? 's' : ''} + ${bnplItems.length} BNPL`}
+          colorScheme="indigo"
           delay={0.05}
         />
+      </div>
 
-        {/* Card 3: Remaining / Over */}
+      {/* Flow indicator */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="flex items-center gap-2 px-1"
+      >
+        <div className="flex-1 h-px bg-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium px-2">
+          <ArrowRight className="w-3.5 h-3.5" />
+          Income minus commitments
+          <ArrowRight className="w-3.5 h-3.5" />
+          minus expenses
+        </div>
+        <div className="flex-1 h-px bg-border" />
+      </motion.div>
+
+      {/* Row 2: Available After Commitments & Remaining Money */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          icon={<Wallet className="w-5 h-5" />}
+          label="Available After Commitments"
+          value={`${isAvailNeg ? '−' : ''}${formatRM(Math.abs(availableAfterCommit))}`}
+          subtext={
+            isAvailNeg
+              ? 'Commitments exceed income'
+              : `Income ${formatRM(totalMonthlyIncome)} − Commitments ${formatRM(totalObligations)}`
+          }
+          colorScheme={availScheme}
+          delay={0.12}
+        />
         <StatCard
           icon={<PiggyBank className="w-5 h-5" />}
-          label={isOverBudget ? (hasIncome ? 'Income Deficit' : 'Over Budget By') : 'Remaining Money'}
-          value={formatRM(Math.abs(effectiveRemaining))}
+          label={isOverall ? 'Deficit' : 'Remaining Money'}
+          value={`${isOverall ? '−' : ''}${formatRM(Math.abs(remainingMoney))}`}
           subtext={
-            isOverBudget
-              ? `${hasIncome ? 'Income' : 'Budget'}, commitments & expenses exceeded`
-              : (totalCommitments > 0 || totalBnplMonthly > 0)
-              ? `After expenses, commitments & BNPL`
-              : isWarning ? 'Approaching your limit'
-              : hasIncome ? 'Income minus all outgoings' : 'Budget minus all spending'
+            isOverall
+              ? `Overspent by ${formatRM(Math.abs(remainingMoney))}`
+              : `After expenses ${formatRM(totalSpent)}`
           }
-          colorScheme={remainingScheme}
-          delay={0.1}
+          colorScheme={remainScheme}
+          delay={0.17}
         />
+      </div>
 
-        {/* Card 4: Today's Spending */}
+      {/* Row 3: Total Spent & Today */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          icon={<TrendingDown className="w-5 h-5" />}
+          label="Total Spent (Expenses)"
+          value={formatRM(totalSpent)}
+          subtext={
+            progressBase > 0
+              ? `${Math.min(percentageUsed, 999).toFixed(1)}% of income used overall`
+              : `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} logged`
+          }
+          colorScheme="amber"
+          delay={0.22}
+        />
         <StatCard
           icon={<CalendarDays className="w-5 h-5" />}
           label="Today's Spending"
           value={formatRM(todaySpent)}
-          subtext={todayExpenses.length === 0 ? 'No expenses today' : `${todayExpenses.length} ${todayExpenses.length === 1 ? 'expense' : 'expenses'} today`}
+          subtext={todayExpenses.length === 0 ? 'No expenses today' : `${todayExpenses.length} expense${todayExpenses.length !== 1 ? 's' : ''} today`}
           colorScheme="violet"
-          delay={0.15}
+          delay={0.27}
         />
       </div>
 
-      {/* Warning/over-budget banner */}
+      {/* Warning / over-budget banner */}
       <AnimatePresence>
-        {(isWarning || isOverBudget) && (
+        {(isWarning || isOverall) && (
           <motion.div
-            key={isOverBudget ? 'over-banner' : 'warning-banner'}
+            key={isOverall ? 'over-banner' : 'warning-banner'}
             initial={{ opacity: 0, y: -10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.97 }}
             transition={{ duration: 0.28, ease: 'easeOut' }}
           >
-            <div className={`relative overflow-hidden rounded-2xl border-2 px-5 py-4 ${isOverBudget ? 'bg-red-50 border-red-300' : 'bg-orange-50 border-orange-300'}`}>
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${isOverBudget ? 'bg-red-500' : 'bg-orange-500'}`} />
+            <div className={`relative overflow-hidden rounded-2xl border-2 px-5 py-4 ${isOverall ? 'bg-red-50 border-red-300' : 'bg-orange-50 border-orange-300'}`}>
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${isOverall ? 'bg-red-500' : 'bg-orange-500'}`} />
               <div className="flex items-start gap-3 pl-2">
                 <div className="relative shrink-0 mt-0.5">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isOverBudget ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                    {isOverBudget ? <AlertCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isOverall ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                    {isOverall ? <AlertCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
                   </div>
                   <motion.div
                     animate={{ scale: [1, 1.6], opacity: [0.5, 0] }}
                     transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
-                    className={`absolute inset-0 rounded-xl ${isOverBudget ? 'bg-red-400' : 'bg-orange-400'}`}
+                    className={`absolute inset-0 rounded-xl ${isOverall ? 'bg-red-400' : 'bg-orange-400'}`}
                     style={{ zIndex: -1 }}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold leading-snug ${isOverBudget ? 'text-red-800' : 'text-orange-800'}`}>
-                    {isOverBudget
-                      ? `Warning: Your spending exceeds your monthly ${hasIncome ? 'income' : 'budget'}!`
-                      : `Warning: You have used more than 80% of your monthly ${hasIncome ? 'income' : 'budget'}.`
-                    }
+                  <p className={`text-sm font-bold leading-snug ${isOverall ? 'text-red-800' : 'text-orange-800'}`}>
+                    {isOverall
+                      ? 'Your expenses exceed what\'s available after commitments.'
+                      : 'You have used more than 80% of your income.'}
                   </p>
-                  <p className={`text-xs mt-1 leading-relaxed ${isOverBudget ? 'text-red-600' : 'text-orange-600'}`}>
-                    {isOverBudget
-                      ? `You're ${formatRM(Math.abs(effectiveRemaining))} over. Review your expenses to get back on track.`
-                      : `${percentageUsed.toFixed(1)}% used · ${formatRM(effectiveRemaining)} remaining.`
-                    }
+                  <p className={`text-xs mt-1 leading-relaxed ${isOverall ? 'text-red-600' : 'text-orange-600'}`}>
+                    {isOverall
+                      ? `You're ${formatRM(Math.abs(remainingMoney))} in deficit. Review your expenses to get back on track.`
+                      : `${percentageUsed.toFixed(1)}% used · ${formatRM(remainingMoney)} remaining after all outgoings.`}
                   </p>
                 </div>
-                <span className={`shrink-0 self-start text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 ${isOverBudget ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}`}>
+                <span className={`shrink-0 self-start text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 ${isOverall ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}`}>
                   {percentageUsed.toFixed(0)}%
                 </span>
               </div>
@@ -233,18 +272,16 @@ export function DashboardStats() {
         )}
       </AnimatePresence>
 
-      {/* Progress bar — only shown when budget or income is set */}
+      {/* Progress bar */}
       {progressBase > 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.15, ease: 'easeOut' }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.3, ease: 'easeOut' }}>
           <Card className="overflow-hidden bg-white">
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {hasIncome ? 'Monthly Income Usage' : 'Monthly Budget Usage'}
-                  </p>
+                  <p className="text-sm font-semibold text-foreground">Monthly Income Usage</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatRM(totalSpent)} spent of {formatRM(progressBase)}
+                    Commitments {formatRM(totalObligations)} + Expenses {formatRM(totalSpent)} of {formatRM(progressBase)}
                   </p>
                 </div>
                 <AnimatePresence mode="wait">
@@ -261,11 +298,22 @@ export function DashboardStats() {
                 </AnimatePresence>
               </div>
 
-              <div className={`relative h-5 w-full rounded-full overflow-hidden transition-colors duration-500 ${progressTrack}`}>
+              {/* Stacked bar: commitments + expenses */}
+              <div className={`relative h-5 w-full rounded-full overflow-hidden ${progressTrack}`}>
+                {/* Commitments segment */}
                 <motion.div
-                  animate={{ width: `${clampedPct}%` }}
+                  animate={{ width: `${Math.min((totalObligations / progressBase) * 100, 100)}%` }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className={`h-full rounded-full transition-colors duration-500 ${progressColor}`}
+                  className="absolute h-full bg-indigo-400 rounded-l-full"
+                />
+                {/* Expenses segment */}
+                <motion.div
+                  animate={{
+                    left: `${Math.min((totalObligations / progressBase) * 100, 100)}%`,
+                    width: `${Math.min((totalSpent / progressBase) * 100, 100 - Math.min((totalObligations / progressBase) * 100, 100))}%`,
+                  }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className={`absolute h-full ${progressColor}`}
                 />
                 <div className="absolute top-0 bottom-0 w-px bg-black/20" style={{ left: '60%' }} />
                 <div className="absolute top-0 bottom-0 w-px bg-black/20" style={{ left: '90%' }} />
@@ -278,28 +326,24 @@ export function DashboardStats() {
                 <span className="absolute right-0 text-xs text-muted-foreground">{formatRM(progressBase)}</span>
               </div>
 
-              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/60">
+              <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-border/60">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shrink-0" />
+                  <span className="text-xs text-muted-foreground">Commitments</span>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs text-muted-foreground">Under 60%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" />
-                  <span className="text-xs text-muted-foreground">60–90%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
-                  <span className="text-xs text-muted-foreground">Over 90%</span>
+                  <span className="text-xs text-muted-foreground">Expenses</span>
                 </div>
                 <div className={`ml-auto flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${statusTextColor}`}>
-                  {barLevel === 'red' ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {isOverall ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     : barLevel === 'orange' ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                  {isOverBudget
-                    ? `Over by ${formatRM(Math.abs(effectiveRemaining))}`
+                  {isOverall
+                    ? `Deficit of ${formatRM(Math.abs(remainingMoney))}`
                     : barLevel === 'red' ? `${(100 - percentageUsed).toFixed(1)}% left — high spending`
-                    : barLevel === 'orange' ? `${(100 - percentageUsed).toFixed(1)}% remaining`
-                    : `${formatRM(effectiveRemaining)} available`}
+                    : barLevel === 'orange' ? `${formatRM(remainingMoney)} remaining`
+                    : `${formatRM(remainingMoney)} available`}
                 </div>
               </div>
             </CardContent>
