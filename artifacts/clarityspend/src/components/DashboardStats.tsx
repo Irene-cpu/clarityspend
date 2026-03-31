@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   Wallet, TrendingDown, PiggyBank, AlertCircle,
   CheckCircle2, TrendingUp, AlertTriangle, CalendarDays,
-  Landmark, ArrowRight,
+  Landmark, ArrowRight, Smile, Flame, Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -63,8 +63,6 @@ function StatCard({
 export function DashboardStats() {
   const { budget, expenses, bnplItems, commitments, incomeEntries } = useSpendStore();
 
-  // ── Current-month filter — ALL expense figures use this window ─────────────────
-  // Income, commitments, and BNPL are already monthly; expenses must match.
   const now = new Date();
   const cm  = now.getMonth();
   const cy  = now.getFullYear();
@@ -74,52 +72,72 @@ export function DashboardStats() {
     return d.getMonth() === cm && d.getFullYear() === cy;
   });
 
-  // ── Core numbers — every figure is for the current month ──────────────────────
-  // SplitBill uses the user's share; Normal and Treat use the full amount.
   const totalSpent         = monthExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
   const totalBnplMonthly   = bnplItems.reduce((sum, b) => sum + b.monthlyPayment, 0);
   const totalCommitments   = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
   const hasIncome          = incomeEntries.length > 0;
 
-  // ── Two-step calculation (all monthly) ───────────────────────────────────────
-  // Fixed obligations: recurring commitments + BNPL installments
   const totalObligations     = totalCommitments + totalBnplMonthly;
-  // Step 1: what's left after fixed obligations
   const availableAfterCommit = totalMonthlyIncome - totalObligations;
-  // Step 2: what's left after this month's variable spending
-  // sum(category totals) will always equal totalSpent — no double counting
   const remainingMoney       = availableAfterCommit - totalSpent;
 
-  // ── Today's spending ─────────────────────────────────────────────────────────
   const todayStr      = now.toDateString();
   const todayExpenses = monthExpenses.filter((e) => new Date(e.date).toDateString() === todayStr);
   const todaySpent    = todayExpenses.reduce((sum, e) => sum + (e.userShare ?? e.amount), 0);
 
-  // ── Status thresholds ─────────────────────────────────────────────────────────
-  const isOverall        = remainingMoney < 0;
-  const isAvailNeg       = availableAfterCommit < 0;
-  const progressBase     = hasIncome ? totalMonthlyIncome : (budget ?? 0);
-  const percentageUsed   = progressBase > 0
+  const isOverall    = remainingMoney < 0;
+  const isAvailNeg   = availableAfterCommit < 0;
+  const progressBase = hasIncome ? totalMonthlyIncome : (budget ?? 0);
+
+  const percentageUsed = progressBase > 0
     ? ((totalSpent + totalObligations) / progressBase) * 100
     : 0;
-  const clampedPct = Math.min(percentageUsed, 100);
 
-  const barLevel: 'green' | 'orange' | 'red' =
-    percentageUsed >= 90 || isOverall ? 'red'
-    : percentageUsed >= 60 ? 'orange'
-    : 'green';
-
-  const isWarning       = !isOverall && percentageUsed >= 80;
-  const progressColor   = barLevel === 'red' ? 'bg-red-500' : barLevel === 'orange' ? 'bg-orange-400' : 'bg-emerald-500';
-  const progressTrack   = barLevel === 'red' ? 'bg-red-100' : barLevel === 'orange' ? 'bg-orange-100' : 'bg-emerald-100';
-  const pctTextColor    = barLevel === 'red' ? 'text-red-600' : barLevel === 'orange' ? 'text-orange-500' : 'text-emerald-600';
-  const statusTextColor = pctTextColor;
+  const isWarning = !isOverall && percentageUsed >= 80;
 
   const availScheme: 'green' | 'orange' | 'red' = isAvailNeg ? 'red' : availableAfterCommit < totalMonthlyIncome * 0.2 ? 'orange' : 'green';
   const remainScheme: 'green' | 'orange' | 'red' = isOverall ? 'red' : remainingMoney < totalMonthlyIncome * 0.1 ? 'orange' : 'green';
 
-  // ── No income, no budget: minimal view ───────────────────────────────────────
+  // ── Segmented bar percentages ─────────────────────────────────────────────
+  const commitPct  = progressBase > 0 ? Math.min((totalObligations / progressBase) * 100, 100) : 0;
+  const expensePct = progressBase > 0 ? Math.min((totalSpent / progressBase) * 100, Math.max(0, 100 - commitPct)) : 0;
+  const remainPct  = Math.max(0, 100 - commitPct - expensePct);
+
+  // ── Insight message ───────────────────────────────────────────────────────
+  const { insightMsg, insightBg, insightText, insightIconNode } = (() => {
+    if (progressBase === 0) {
+      return { insightMsg: 'Add income to get spending insights.', insightBg: 'bg-blue-50', insightText: 'text-blue-700', insightIconNode: <Wallet className="w-3.5 h-3.5" /> };
+    }
+    if (isOverall) {
+      return { insightMsg: `You're ${formatRM(Math.abs(remainingMoney))} over budget. Review your expenses to get back on track.`, insightBg: 'bg-red-50', insightText: 'text-red-700', insightIconNode: <AlertCircle className="w-3.5 h-3.5" /> };
+    }
+    const commitRatio  = totalObligations / progressBase;
+    const remainRatio  = remainingMoney / progressBase;
+
+    if (remainRatio >= 0.5) {
+      return { insightMsg: "You're in great shape — over half your income is still available.", insightBg: 'bg-emerald-50', insightText: 'text-emerald-700', insightIconNode: <Smile className="w-3.5 h-3.5" /> };
+    }
+    if (commitRatio >= 0.5) {
+      return { insightMsg: 'Your commitments take up a large portion of your income.', insightBg: 'bg-blue-50', insightText: 'text-blue-700', insightIconNode: <Landmark className="w-3.5 h-3.5" /> };
+    }
+    if (percentageUsed >= 90) {
+      return { insightMsg: "You've used most of your flexible spending for this month.", insightBg: 'bg-orange-50', insightText: 'text-orange-700', insightIconNode: <Flame className="w-3.5 h-3.5" /> };
+    }
+    if (percentageUsed >= 70) {
+      return { insightMsg: 'Getting close — watch your spending for the rest of the month.', insightBg: 'bg-amber-50', insightText: 'text-amber-700', insightIconNode: <AlertTriangle className="w-3.5 h-3.5" /> };
+    }
+    return { insightMsg: `You have ${formatRM(remainingMoney)} available for the rest of the month.`, insightBg: 'bg-emerald-50', insightText: 'text-emerald-700', insightIconNode: <Zap className="w-3.5 h-3.5" /> };
+  })();
+
+  // ── Remaining value color ─────────────────────────────────────────────────
+  const remainValueColor = isOverall
+    ? 'text-red-600'
+    : remainingMoney < totalMonthlyIncome * 0.1
+    ? 'text-orange-500'
+    : 'text-emerald-600';
+
+  // ── No income + no budget: minimal view ──────────────────────────────────
   if (!hasIncome && budget === null) {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }} className="space-y-4">
@@ -146,7 +164,7 @@ export function DashboardStats() {
     );
   }
 
-  // ── Main view ─────────────────────────────────────────────────────────────────
+  // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
 
@@ -221,11 +239,7 @@ export function DashboardStats() {
           icon={<TrendingDown className="w-5 h-5" />}
           label="Spent This Month"
           value={formatRM(totalSpent)}
-          subtext={
-            progressBase > 0
-              ? `${Math.min(percentageUsed, 999).toFixed(1)}% of income used`
-              : `${monthExpenses.length} expense${monthExpenses.length !== 1 ? 's' : ''} this month`
-          }
+          subtext={`${monthExpenses.length} expense${monthExpenses.length !== 1 ? 's' : ''} this month`}
           colorScheme="amber"
           delay={0.22}
         />
@@ -275,89 +289,150 @@ export function DashboardStats() {
                       : `${percentageUsed.toFixed(1)}% used · ${formatRM(remainingMoney)} remaining after all outgoings.`}
                   </p>
                 </div>
-                <span className={`shrink-0 self-start text-xs font-bold px-2.5 py-1 rounded-full mt-0.5 ${isOverall ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}`}>
-                  {percentageUsed.toFixed(0)}%
-                </span>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Progress bar */}
+      {/* ── This Month's Usage — redesigned ─────────────────────────────── */}
       {progressBase > 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.3, ease: 'easeOut' }}>
-          <Card className="overflow-hidden bg-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.3, ease: 'easeOut' }}
+        >
+          <Card className="overflow-hidden bg-white border">
+            <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-orange-400 to-emerald-500" />
+            <CardContent className="p-5 space-y-4">
+
+              {/* Header: title left, remaining right (most prominent) */}
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-foreground">This Month's Usage</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Commitments {formatRM(totalObligations)} + Expenses {formatRM(totalSpent)} of {formatRM(progressBase)} income
+                    Based on {formatRM(progressBase)} income
                   </p>
                 </div>
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={clampedPct.toFixed(1)}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ duration: 0.2 }}
-                    className={`text-2xl font-bold tabular-nums transition-colors duration-300 ${pctTextColor}`}
-                  >
-                    {clampedPct.toFixed(1)}%
-                  </motion.span>
-                </AnimatePresence>
-              </div>
-
-              {/* Stacked bar: commitments + expenses */}
-              <div className={`relative h-5 w-full rounded-full overflow-hidden ${progressTrack}`}>
-                {/* Commitments segment */}
-                <motion.div
-                  animate={{ width: `${Math.min((totalObligations / progressBase) * 100, 100)}%` }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="absolute h-full bg-indigo-400 rounded-l-full"
-                />
-                {/* Expenses segment */}
-                <motion.div
-                  animate={{
-                    left: `${Math.min((totalObligations / progressBase) * 100, 100)}%`,
-                    width: `${Math.min((totalSpent / progressBase) * 100, 100 - Math.min((totalObligations / progressBase) * 100, 100))}%`,
-                  }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className={`absolute h-full ${progressColor}`}
-                />
-                <div className="absolute top-0 bottom-0 w-px bg-black/20" style={{ left: '60%' }} />
-                <div className="absolute top-0 bottom-0 w-px bg-black/20" style={{ left: '90%' }} />
-              </div>
-
-              <div className="relative mt-2 h-4">
-                <span className="absolute left-0 text-xs text-muted-foreground">RM 0</span>
-                <span className="absolute hidden min-[480px]:inline text-xs font-semibold text-emerald-500 whitespace-nowrap -translate-x-1/2" style={{ left: '60%' }}>60%</span>
-                <span className="absolute hidden min-[480px]:inline text-xs font-semibold text-red-400 whitespace-nowrap -translate-x-1/2" style={{ left: '90%' }}>90%</span>
-                <span className="absolute right-0 text-xs text-muted-foreground">{formatRM(progressBase)}</span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-border/60">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shrink-0" />
-                  <span className="text-xs text-muted-foreground">Commitments</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs text-muted-foreground">Expenses</span>
-                </div>
-                <div className={`ml-auto flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${statusTextColor}`}>
-                  {isOverall ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    : barLevel === 'orange' ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                  {isOverall
-                    ? `Deficit of ${formatRM(Math.abs(remainingMoney))}`
-                    : barLevel === 'red' ? `${(100 - percentageUsed).toFixed(1)}% left — high spending`
-                    : barLevel === 'orange' ? `${formatRM(remainingMoney)} remaining`
-                    : `${formatRM(remainingMoney)} available`}
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">
+                    {isOverall ? 'Deficit' : 'Remaining'}
+                  </p>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={remainingMoney}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.2 }}
+                      className={`text-2xl font-bold tabular-nums leading-none ${remainValueColor}`}
+                    >
+                      {isOverall ? `−${formatRM(Math.abs(remainingMoney))}` : formatRM(remainingMoney)}
+                    </motion.p>
+                  </AnimatePresence>
                 </div>
               </div>
+
+              {/* Segmented bar */}
+              <div>
+                <div className="h-5 w-full rounded-full overflow-hidden flex bg-gray-100">
+                  {/* Commitments — blue */}
+                  <motion.div
+                    animate={{ width: `${commitPct}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    className="h-full bg-blue-500 shrink-0"
+                    style={{ borderRadius: expensePct === 0 && remainPct === 0 ? '9999px' : '9999px 0 0 9999px' }}
+                  />
+                  {/* Gap */}
+                  {commitPct > 0 && expensePct > 0 && <div className="w-px h-full bg-white/60 shrink-0" />}
+                  {/* Expenses — orange */}
+                  <motion.div
+                    animate={{ width: `${expensePct}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    className="h-full bg-orange-400 shrink-0"
+                    style={{ borderRadius: remainPct === 0 ? '0 9999px 9999px 0' : 0 }}
+                  />
+                  {/* Gap */}
+                  {expensePct > 0 && remainPct > 0 && <div className="w-px h-full bg-white/60 shrink-0" />}
+                  {/* Remaining — green or red */}
+                  <motion.div
+                    animate={{ width: `${remainPct}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    className={`h-full shrink-0 ${isOverall ? 'bg-red-400' : 'bg-emerald-400'}`}
+                    style={{ borderRadius: commitPct === 0 && expensePct === 0 ? '9999px' : '0 9999px 9999px 0' }}
+                  />
+                </div>
+              </div>
+
+              {/* Breakdown: 3 columns */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                {/* Commitments */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 shrink-0" />
+                    <span className="text-xs text-muted-foreground font-medium truncate">Commitments</span>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p key={totalObligations} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                      className="text-sm font-bold text-foreground tabular-nums">
+                      {formatRM(totalObligations)}
+                    </motion.p>
+                  </AnimatePresence>
+                  <p className="text-xs text-muted-foreground">{commitPct.toFixed(0)}% of income</p>
+                </div>
+
+                {/* Expenses */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-orange-400 shrink-0" />
+                    <span className="text-xs text-muted-foreground font-medium truncate">Expenses</span>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p key={totalSpent} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                      className="text-sm font-bold text-foreground tabular-nums">
+                      {formatRM(totalSpent)}
+                    </motion.p>
+                  </AnimatePresence>
+                  <p className="text-xs text-muted-foreground">{expensePct.toFixed(0)}% of income</p>
+                </div>
+
+                {/* Remaining */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${isOverall ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                    <span className="text-xs text-muted-foreground font-medium truncate">
+                      {isOverall ? 'Deficit' : 'Remaining'}
+                    </span>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p key={remainingMoney} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                      className={`text-sm font-bold tabular-nums ${remainValueColor}`}>
+                      {isOverall ? `−${formatRM(Math.abs(remainingMoney))}` : formatRM(remainingMoney)}
+                    </motion.p>
+                  </AnimatePresence>
+                  <p className="text-xs text-muted-foreground">{remainPct.toFixed(0)}% of income</p>
+                </div>
+              </div>
+
+              {/* Insight message */}
+              <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 ${insightBg}`}>
+                <div className={`shrink-0 ${insightText}`}>
+                  {insightIconNode}
+                </div>
+                <p className={`text-xs font-medium leading-relaxed ${insightText}`}>
+                  {insightMsg}
+                </p>
+                {!isOverall && (
+                  <div className="ml-auto shrink-0">
+                    {percentageUsed < 60
+                      ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      : percentageUsed < 85
+                      ? <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      : <AlertCircle className="w-4 h-4 text-red-500" />}
+                  </div>
+                )}
+              </div>
+
             </CardContent>
           </Card>
         </motion.div>
