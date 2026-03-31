@@ -48,6 +48,8 @@ export interface SavingsGoal {
   savedAmount: number;
 }
 
+export type CategoryBudgetMap = Partial<Record<ExpenseCategory, number>>;
+
 // ─── DB row mappers ───────────────────────────────────────────────────────────
 
 function mapDbExpense(row: Record<string, unknown>): Expense {
@@ -115,12 +117,14 @@ interface SpendState {
   commitments: Commitment[];
   incomeEntries: IncomeEntry[];
   savingsGoals: SavingsGoal[];
+  categoryBudgets: CategoryBudgetMap;
   editingExpenseId: string | null;
 
   loadAll: (userId: string) => Promise<void>;
   clearAll: () => void;
 
   setBudget: (amount: number) => void;
+  setCategoryBudget: (category: ExpenseCategory, amount: number | null) => void;
 
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => void;
@@ -159,6 +163,7 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
   commitments: [],
   incomeEntries: [],
   savingsGoals: [],
+  categoryBudgets: {},
   editingExpenseId: null,
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -172,6 +177,7 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
       { data: income },
       { data: budget },
       { data: savingsGoals },
+      { data: catBudgets },
     ] = await Promise.all([
       supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }),
       supabase.from('bnpl_items').select('*').eq('user_id', userId),
@@ -179,15 +185,21 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
       supabase.from('income_entries').select('*').eq('user_id', userId),
       supabase.from('budget').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('savings_goals').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+      supabase.from('category_budgets').select('*').eq('user_id', userId),
     ]);
+    const categoryBudgets: CategoryBudgetMap = {};
+    (catBudgets ?? []).forEach((row: Record<string, unknown>) => {
+      categoryBudgets[row.category as ExpenseCategory] = row.budget as number;
+    });
     set({
-      expenses:      (expenses      ?? []).map(mapDbExpense),
-      bnplItems:     (bnpl          ?? []).map(mapDbBnpl),
-      commitments:   (commitments   ?? []).map(mapDbCommitment),
-      incomeEntries: (income        ?? []).map(mapDbIncome),
-      budget:        (budget as { amount: number } | null)?.amount ?? null,
-      savingsGoals:  (savingsGoals  ?? []).map(mapDbSavingsGoal),
-      isLoading:     false,
+      expenses:       (expenses      ?? []).map(mapDbExpense),
+      bnplItems:      (bnpl          ?? []).map(mapDbBnpl),
+      commitments:    (commitments   ?? []).map(mapDbCommitment),
+      incomeEntries:  (income        ?? []).map(mapDbIncome),
+      budget:         (budget as { amount: number } | null)?.amount ?? null,
+      savingsGoals:   (savingsGoals  ?? []).map(mapDbSavingsGoal),
+      categoryBudgets,
+      isLoading:      false,
     });
   },
 
@@ -199,6 +211,7 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
     commitments: [],
     incomeEntries: [],
     savingsGoals: [],
+    categoryBudgets: {},
     editingExpenseId: null,
   }),
 
@@ -211,6 +224,29 @@ export const useSpendStore = create<SpendState>()((set, get) => ({
     supabase.from('budget')
       .upsert({ user_id: userId, amount }, { onConflict: 'user_id' })
       .then(({ error }) => { if (error) console.error('setBudget:', error); });
+  },
+
+  setCategoryBudget: (category, amount) => {
+    set((state) => {
+      const next = { ...state.categoryBudgets };
+      if (amount === null) {
+        delete next[category];
+      } else {
+        next[category] = amount;
+      }
+      return { categoryBudgets: next };
+    });
+    const { userId } = get();
+    if (!userId) return;
+    if (amount === null) {
+      supabase.from('category_budgets').delete()
+        .eq('user_id', userId).eq('category', category)
+        .then(({ error }) => { if (error) console.error('deleteCategoryBudget:', error); });
+    } else {
+      supabase.from('category_budgets')
+        .upsert({ user_id: userId, category, budget: amount }, { onConflict: 'user_id,category' })
+        .then(({ error }) => { if (error) console.error('setCategoryBudget:', error); });
+    }
   },
 
   // ── Expenses ───────────────────────────────────────────────────────────────

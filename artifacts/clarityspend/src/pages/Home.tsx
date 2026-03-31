@@ -10,6 +10,7 @@ import { MonthlyCommitments } from '@/components/MonthlyCommitments';
 import { UpcomingPayments } from '@/components/UpcomingPayments';
 import { IncomeTracker } from '@/components/IncomeTracker';
 import { SavingsGoals } from '@/components/SavingsGoals';
+import { CategoryBudgets } from '@/components/CategoryBudgets';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sparkles, LogOut, LayoutDashboard, Receipt, CalendarCheck, Wallet, PiggyBank } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -150,6 +151,7 @@ export default function Home() {
           {/* Dashboard section */}
           <section id="section-dashboard" className="space-y-8 scroll-mt-20">
             <DashboardStats />
+            <CategoryBudgets />
             <SpendingChart />
             <UpcomingPayments />
           </section>
