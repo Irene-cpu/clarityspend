@@ -13,11 +13,11 @@ const queryClient = new QueryClient();
 
 function AppShell() {
   const { user, loading } = useAuth();
-  const { loadAll, clearAll } = useSpendStore();
+  const { loadAll, clearAll, runMonthlyResets } = useSpendStore();
 
   useEffect(() => {
     if (user) {
-      loadAll(user.id);
+      loadAll(user.id).then(() => runMonthlyResets());
     } else if (!loading) {
       clearAll();
     }

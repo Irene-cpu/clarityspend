@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSpendStore, ExpenseCategory } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,8 +14,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Trash2, Receipt, ReceiptText, Users, Heart, Pencil } from 'lucide-react';
-import { format, isToday } from 'date-fns';
+import { Trash2, Receipt, ReceiptText, Users, Heart, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, isToday, startOfMonth, subMonths, addMonths, isSameMonth, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORY_STYLES: Record<ExpenseCategory, { badge: string; dot: string }> = {
@@ -31,9 +31,20 @@ const CATEGORY_STYLES: Record<ExpenseCategory, { badge: string; dot: string }> =
 export function ExpenseHistory() {
   const { expenses, removeExpense, clearExpenses, editingExpenseId, setEditingExpenseId } = useSpendStore();
 
-  const sorted = [...expenses].sort(
+  const [viewDate, setViewDate] = useState<Date>(() => startOfMonth(new Date()));
+
+  const now = new Date();
+  const isCurrentMonth = isSameMonth(viewDate, now);
+
+  const goPrev = () => setViewDate((d) => startOfMonth(subMonths(d, 1)));
+  const goNext = () => { if (!isCurrentMonth) setViewDate((d) => startOfMonth(addMonths(d, 1))); };
+
+  // All expenses sorted newest-first, then filtered to the viewed month
+  const allSorted = [...expenses].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
+
+  const monthExpenses = allSorted.filter((e) => isSameMonth(parseISO(e.date), viewDate));
 
   const handleEdit = (id: string) => {
     setEditingExpenseId(id);
@@ -51,9 +62,12 @@ export function ExpenseHistory() {
               <ReceiptText className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground leading-none">Recent Expenses</h2>
+              <h2 className="text-base font-bold text-foreground leading-none">Expense History</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {expenses.length} {expenses.length === 1 ? 'entry' : 'entries'}
+                {monthExpenses.length} {monthExpenses.length === 1 ? 'entry' : 'entries'}
+                {expenses.length !== monthExpenses.length && (
+                  <span className="ml-1 opacity-60">· {expenses.length} total</span>
+                )}
               </p>
             </div>
           </div>
@@ -72,7 +86,7 @@ export function ExpenseHistory() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Clear all expenses?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete all your expense entries. This action cannot be undone.
+                    This will permanently delete all your expense entries across all months. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -89,7 +103,36 @@ export function ExpenseHistory() {
           )}
         </div>
 
-        {/* Empty state */}
+        {/* Month navigation */}
+        <div className="flex items-center justify-between px-5 py-2.5 border-b border-border bg-slate-50/60">
+          <button
+            onClick={goPrev}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-slate-200 transition-colors duration-150"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <span className="text-sm font-semibold text-foreground">
+            {format(viewDate, 'MMMM yyyy')}
+            {isCurrentMonth && (
+              <span className="ml-1.5 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                This month
+              </span>
+            )}
+          </span>
+
+          <button
+            onClick={goNext}
+            disabled={isCurrentMonth}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-slate-200 transition-colors duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Empty state — no expenses at all */}
         {expenses.length === 0 && (
           <div className="py-14 flex flex-col items-center justify-center text-center px-6">
             <div className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mb-3">
@@ -102,11 +145,24 @@ export function ExpenseHistory() {
           </div>
         )}
 
-        {/* List — sorted newest first */}
-        {sorted.length > 0 && (
+        {/* Empty state — no expenses this month but other months have data */}
+        {expenses.length > 0 && monthExpenses.length === 0 && (
+          <div className="py-12 flex flex-col items-center justify-center text-center px-6">
+            <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mb-3">
+              <Receipt className="w-5 h-5 text-slate-300" />
+            </div>
+            <p className="text-sm font-medium text-foreground">No expenses in {format(viewDate, 'MMMM yyyy')}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isCurrentMonth ? 'Add an expense above to get started.' : 'Use the arrows to browse other months.'}
+            </p>
+          </div>
+        )}
+
+        {/* List — filtered to viewed month, sorted newest first */}
+        {monthExpenses.length > 0 && (
           <ul className="divide-y divide-border">
             <AnimatePresence initial={false}>
-              {sorted.map((expense, index) => {
+              {monthExpenses.map((expense, index) => {
                 const style       = CATEGORY_STYLES[expense.category];
                 const expenseDate = new Date(expense.date);
                 const showTime    = isToday(expenseDate);

@@ -112,6 +112,7 @@ function mapDbSavingsGoal(row: Record<string, unknown>): SavingsGoal {
 interface SpendState {
   userId: string | null;
   isLoading: boolean;
+  lastResetMonth: string | null;   // "YYYY-MM" of the last month resets ran
   budget: number | null;
   expenses: Expense[];
   bnplItems: BnplItem[];
@@ -151,6 +152,8 @@ interface SpendState {
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
   updateSavingsGoal: (id: string, updates: Partial<Omit<SavingsGoal, 'id'>>) => void;
   removeSavingsGoal: (id: string) => void;
+
+  runMonthlyResets: () => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -160,6 +163,7 @@ export const useSpendStore = create<SpendState>()(
     (set, get) => ({
   userId: null,
   isLoading: false,
+  lastResetMonth: null,
   budget: null,
   expenses: [],
   bnplItems: [],
@@ -660,17 +664,34 @@ export const useSpendStore = create<SpendState>()(
         }
       });
   },
+  // ── Monthly Resets ─────────────────────────────────────────────────────────
+  //
+  // Called once per login, after loadAll() resolves. Checks whether the
+  // current calendar month differs from the last recorded reset month and,
+  // if so, clears paid_at on commitments and BNPL items (both locally and
+  // in Supabase) so they appear unpaid for the new month.
+
+  runMonthlyResets: () => {
+    const now  = new Date();
+    const key  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const { lastResetMonth, resetPaidCommitmentsForNewMonth, resetPaidBnplForNewMonth } = get();
+    if (lastResetMonth === key) return;   // already ran for this month
+    resetPaidCommitmentsForNewMonth();
+    resetPaidBnplForNewMonth();
+    set({ lastResetMonth: key });
+  },
 }),
 {
   name: 'clarityspend-data',
   storage: createJSONStorage(() => localStorage),
   partialize: (state) => ({
-    budget:         state.budget,
-    expenses:       state.expenses,
-    bnplItems:      state.bnplItems,
-    commitments:    state.commitments,
-    incomeEntries:  state.incomeEntries,
-    savingsGoals:   state.savingsGoals,
+    lastResetMonth:  state.lastResetMonth,
+    budget:          state.budget,
+    expenses:        state.expenses,
+    bnplItems:       state.bnplItems,
+    commitments:     state.commitments,
+    incomeEntries:   state.incomeEntries,
+    savingsGoals:    state.savingsGoals,
     categoryBudgets: state.categoryBudgets,
   }),
 }
