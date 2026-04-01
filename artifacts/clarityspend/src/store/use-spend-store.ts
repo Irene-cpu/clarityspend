@@ -190,11 +190,36 @@ export const useSpendStore = create<SpendState>()(
       supabase.from('savings_goals').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
       supabase.from('category_budgets').select('*').eq('user_id', userId),
     ]);
+    // Snapshot local state before overwriting so we can preserve paid status
+    // when the paid_at column doesn't yet exist in Supabase (column missing →
+    // key is absent from SELECT * rows, vs. column exists + null → key is present with null value).
+    const local = get();
+
+    // Merge helper: if the Supabase row has no `paid_at` key at all (column not yet
+    // added via ALTER TABLE), keep whatever paidAt is already in local/localStorage state.
+    const mergeCommitment = (row: Record<string, unknown>): Commitment => {
+      const mapped = mapDbCommitment(row);
+      if (!('paid_at' in row)) {
+        const localItem = local.commitments.find((c) => c.id === mapped.id);
+        if (localItem?.paidAt) return { ...mapped, paidAt: localItem.paidAt };
+      }
+      return mapped;
+    };
+
+    const mergeBnpl = (row: Record<string, unknown>): BnplItem => {
+      const mapped = mapDbBnpl(row);
+      if (!('paid_at' in row)) {
+        const localItem = local.bnplItems.find((b) => b.id === mapped.id);
+        if (localItem?.paidAt) return { ...mapped, paidAt: localItem.paidAt };
+      }
+      return mapped;
+    };
+
     // Build the Supabase-sourced update
     const update: Partial<SpendState> & { isLoading: boolean } = {
       expenses:      (expenses      ?? []).map(mapDbExpense),
-      bnplItems:     (bnpl          ?? []).map(mapDbBnpl),
-      commitments:   (commitments   ?? []).map(mapDbCommitment),
+      bnplItems:     (bnpl          ?? []).map((r) => mergeBnpl(r as Record<string, unknown>)),
+      commitments:   (commitments   ?? []).map((r) => mergeCommitment(r as Record<string, unknown>)),
       incomeEntries: (income        ?? []).map(mapDbIncome),
       budget:        (budget as { amount: number } | null)?.amount ?? null,
       savingsGoals:  (savingsGoals  ?? []).map(mapDbSavingsGoal),
@@ -369,6 +394,7 @@ export const useSpendStore = create<SpendState>()(
   toggleBnplPaid: (id) => {
     const item = get().bnplItems.find((b) => b.id === id);
     if (!item) return;
+    const prevPaidAt = item.paidAt;
     const newPaidAt = item.paidAt ? undefined : new Date().toISOString();
     set((state) => ({
       bnplItems: state.bnplItems.map((b) =>
@@ -377,8 +403,20 @@ export const useSpendStore = create<SpendState>()(
     }));
     const { userId } = get();
     if (!userId) return;
-    supabase.from('bnpl_items').update({ paid_at: newPaidAt ?? null }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('toggleBnplPaid:', error); });
+    supabase.from('bnpl_items')
+      .update({ paid_at: newPaidAt ?? null })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('toggleBnplPaid: Supabase update failed — paid_at column may need to be added. Run: ALTER TABLE bnpl_items ADD COLUMN IF NOT EXISTS paid_at timestamptz;', error);
+          set((state) => ({
+            bnplItems: state.bnplItems.map((b) =>
+              b.id === id ? { ...b, paidAt: prevPaidAt } : b
+            ),
+          }));
+        }
+      });
   },
 
   resetPaidBnplForNewMonth: () => {
@@ -451,6 +489,7 @@ export const useSpendStore = create<SpendState>()(
   toggleCommitmentPaid: (id) => {
     const commitment = get().commitments.find((c) => c.id === id);
     if (!commitment) return;
+    const prevPaidAt = commitment.paidAt;
     const newPaidAt = commitment.paidAt ? undefined : new Date().toISOString();
     set((state) => ({
       commitments: state.commitments.map((c) =>
@@ -459,8 +498,20 @@ export const useSpendStore = create<SpendState>()(
     }));
     const { userId } = get();
     if (!userId) return;
-    supabase.from('commitments').update({ paid_at: newPaidAt ?? null }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('toggleCommitmentPaid:', error); });
+    supabase.from('commitments')
+      .update({ paid_at: newPaidAt ?? null })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('toggleCommitmentPaid: Supabase update failed — paid_at column may need to be added. Run: ALTER TABLE commitments ADD COLUMN IF NOT EXISTS paid_at timestamptz;', error);
+          set((state) => ({
+            commitments: state.commitments.map((c) =>
+              c.id === id ? { ...c, paidAt: prevPaidAt } : c
+            ),
+          }));
+        }
+      });
   },
 
   resetPaidCommitmentsForNewMonth: () => {
