@@ -7,7 +7,6 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signInWithEmail: (email: string) => Promise<{ error: Error | null }>;
-  verifyOtp: (email: string, token: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -28,13 +27,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithEmail = async (email: string): Promise<{ error: Error | null }> => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin,
+      },
     });
-    return { error: error as Error | null };
-  };
-
-  const verifyOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
     return { error: error as Error | null };
   };
 
@@ -48,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       loading,
       signInWithEmail,
-      verifyOtp,
       signOut,
     }}>
       {children}

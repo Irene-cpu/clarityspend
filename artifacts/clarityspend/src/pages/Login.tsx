@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Mail, Sparkles, KeyRound, ArrowLeft } from 'lucide-react';
+import { Mail, Sparkles, MailCheck, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const COOLDOWN_SECONDS = 60;
@@ -13,29 +13,18 @@ function friendlyError(msg: string): string {
   if (m.includes('rate limit') || m.includes('too many') || m.includes('429')) {
     return 'Too many requests — please wait a few minutes before trying again.';
   }
-  if (m.includes('invalid') || m.includes('expired') || m.includes('otp')) {
-    return 'Incorrect or expired code. Please check your email and try again.';
-  }
   return msg;
 }
 
 export default function Login() {
-  const { signInWithEmail, verifyOtp } = useAuth();
+  const { signInWithEmail } = useAuth();
 
-  // Step 1 state
-  const [email, setEmail] = useState('');
-  const [step, setStep] = useState<'email' | 'otp'>('email');
-  const [sendLoading, setSendLoading] = useState(false);
-  const [sendError, setSendError] = useState('');
-  const [cooldown, setCooldown] = useState(0);
+  const [email, setEmail]         = useState('');
+  const [step, setStep]           = useState<'email' | 'sent'>('email');
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+  const [cooldown, setCooldown]   = useState(0);
 
-  // Step 2 state
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [verifyError, setVerifyError] = useState('');
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Cooldown countdown
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => {
@@ -44,100 +33,32 @@ export default function Login() {
     return () => clearInterval(id);
   }, [cooldown > 0]);
 
-  // Focus first OTP box when entering step 2
-  useEffect(() => {
-    if (step === 'otp') {
-      setTimeout(() => inputRefs.current[0]?.focus(), 50);
-    }
-  }, [step]);
-
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (cooldown > 0 || sendLoading) return;
-    setSendError('');
-    setSendLoading(true);
-    const { error } = await signInWithEmail(email.trim());
-    setSendLoading(false);
-    if (error) {
-      setSendError(friendlyError(error.message));
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (loading || cooldown > 0) return;
+    setError('');
+    setLoading(true);
+    const { error: err } = await signInWithEmail(email.trim());
+    setLoading(false);
+    if (err) {
+      setError(friendlyError(err.message));
     } else {
       setCooldown(COOLDOWN_SECONDS);
-      setOtp(['', '', '', '', '', '']);
-      setVerifyError('');
-      setStep('otp');
+      setStep('sent');
     }
   };
 
   const handleResend = async () => {
-    if (cooldown > 0 || sendLoading) return;
-    setSendError('');
-    setSendLoading(true);
-    const { error } = await signInWithEmail(email.trim());
-    setSendLoading(false);
-    if (error) {
-      setVerifyError(friendlyError(error.message));
+    if (loading || cooldown > 0) return;
+    setError('');
+    setLoading(true);
+    const { error: err } = await signInWithEmail(email.trim());
+    setLoading(false);
+    if (err) {
+      setError(friendlyError(err.message));
     } else {
       setCooldown(COOLDOWN_SECONDS);
-      setOtp(['', '', '', '', '', '']);
-      setVerifyError('');
     }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
-    const next = [...otp];
-    next[index] = digit;
-    setOtp(next);
-    setVerifyError('');
-    if (digit && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-    // Auto-submit when all 6 filled
-    if (digit && index === 5 && next.every(Boolean)) {
-      handleVerify(next.join(''));
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      if (otp[index]) {
-        const next = [...otp];
-        next[index] = '';
-        setOtp(next);
-      } else if (index > 0) {
-        inputRefs.current[index - 1]?.focus();
-      }
-    } else if (e.key === 'ArrowLeft' && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowRight' && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpPaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const next = [...otp];
-    for (let i = 0; i < 6; i++) next[i] = pasted[i] ?? '';
-    setOtp(next);
-    const lastFilled = Math.min(pasted.length, 5);
-    inputRefs.current[lastFilled]?.focus();
-    if (pasted.length === 6) handleVerify(pasted);
-  };
-
-  const handleVerify = async (code?: string) => {
-    const token = code ?? otp.join('');
-    if (token.length < 6 || verifyLoading) return;
-    setVerifyError('');
-    setVerifyLoading(true);
-    const { error } = await verifyOtp(email.trim(), token);
-    setVerifyLoading(false);
-    if (error) {
-      setVerifyError(friendlyError(error.message));
-      setOtp(['', '', '', '', '', '']);
-      setTimeout(() => inputRefs.current[0]?.focus(), 50);
-    }
-    // On success, onAuthStateChange fires → AuthContext updates → AppShell shows Home
   };
 
   return (
@@ -171,20 +92,22 @@ export default function Login() {
           <div className="h-1 w-full bg-primary" />
           <CardContent className="p-6">
             <AnimatePresence mode="wait">
-              {step === 'email' ? (
+
+              {/* Step 1 — email input */}
+              {step === 'email' && (
                 <motion.form
                   key="email-step"
                   initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.2 }}
-                  onSubmit={handleSendCode}
+                  onSubmit={handleSend}
                   className="space-y-4"
                 >
                   <div>
                     <h2 className="text-base font-bold text-foreground">Welcome back</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Enter your email and we'll send a 6-digit sign-in code.
+                      Enter your email and we'll send you a magic link to sign in.
                     </p>
                   </div>
 
@@ -198,7 +121,7 @@ export default function Login() {
                         type="email"
                         placeholder="you@example.com"
                         value={email}
-                        onChange={(e) => { setEmail(e.target.value); setSendError(''); }}
+                        onChange={(e) => { setEmail(e.target.value); setError(''); }}
                         className="pl-10"
                         required
                         autoFocus
@@ -206,112 +129,91 @@ export default function Login() {
                     </div>
                   </div>
 
-                  {sendError && (
+                  {error && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                      {sendError}
+                      {error}
                     </p>
                   )}
 
                   <Button
                     type="submit"
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    disabled={sendLoading || !email.trim() || cooldown > 0}
+                    disabled={loading || !email.trim()}
                   >
-                    {sendLoading
-                      ? 'Sending code…'
-                      : cooldown > 0
-                      ? `Resend in ${cooldown}s`
-                      : 'Send code'}
+                    {loading ? 'Sending link…' : 'Send magic link'}
                   </Button>
 
                   <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-                    No account yet? A code will create one automatically.
+                    No account yet? A link will create one automatically.
                   </p>
                 </motion.form>
-              ) : (
+              )}
+
+              {/* Step 2 — sent confirmation */}
+              {step === 'sent' && (
                 <motion.div
-                  key="otp-step"
+                  key="sent-step"
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 16 }}
                   transition={{ duration: 0.2 }}
                   className="space-y-4"
                 >
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => { setStep('email'); setVerifyError(''); }}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3 transition-colors"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      Back
-                    </button>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <KeyRound className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <h2 className="text-base font-bold text-foreground">Enter your code</h2>
+                  <button
+                    type="button"
+                    onClick={() => { setStep('email'); setError(''); }}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back
+                  </button>
+
+                  {/* Icon */}
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <MailCheck className="w-7 h-7 text-primary" />
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      We sent a 6-digit code to <strong className="text-foreground">{email}</strong>.
-                    </p>
+                    <div className="text-center">
+                      <h2 className="text-base font-bold text-foreground">Check your inbox</h2>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        We sent a magic link to{' '}
+                        <strong className="text-foreground">{email}</strong>.
+                        Click it to sign in — no code needed.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* OTP boxes */}
-                  <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
-                    {otp.map((digit, i) => (
-                      <input
-                        key={i}
-                        ref={(el) => { inputRefs.current[i] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(i, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                        className={[
-                          'w-10 h-12 text-center text-lg font-bold rounded-lg border-2 bg-background outline-none transition-colors',
-                          'focus:border-primary focus:ring-0',
-                          digit ? 'border-primary/60 text-foreground' : 'border-border text-muted-foreground',
-                          verifyError ? 'border-red-400' : '',
-                        ].join(' ')}
-                      />
-                    ))}
-                  </div>
-
-                  {verifyError && (
+                  {error && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
-                      {verifyError}
+                      {error}
                     </p>
                   )}
 
-                  <Button
-                    type="button"
-                    onClick={() => handleVerify()}
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    disabled={verifyLoading || otp.some((d) => !d)}
-                  >
-                    {verifyLoading ? 'Verifying…' : 'Verify code'}
-                  </Button>
-
-                  <div className="text-center">
+                  {/* Resend */}
+                  <div className="text-center pt-1">
                     {cooldown > 0 ? (
                       <p className="text-xs text-muted-foreground">
-                        Resend in <span className="font-semibold tabular-nums">{cooldown}s</span>
+                        Resend available in{' '}
+                        <span className="font-semibold tabular-nums">{cooldown}s</span>
                       </p>
                     ) : (
                       <button
                         type="button"
                         onClick={handleResend}
-                        disabled={sendLoading}
+                        disabled={loading}
                         className="text-xs text-primary hover:underline disabled:opacity-50"
                       >
-                        {sendLoading ? 'Sending…' : "Didn't get a code? Resend"}
+                        {loading ? 'Sending…' : "Didn't get it? Resend the link"}
                       </button>
                     )}
                   </div>
+
+                  <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
+                    The link expires after 60 minutes. Check your spam folder if you don't see it.
+                  </p>
                 </motion.div>
               )}
+
             </AnimatePresence>
           </CardContent>
         </Card>
