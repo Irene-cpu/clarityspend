@@ -179,7 +179,7 @@ export const useSpendStore = create<SpendState>()(
       { data: commitments },
       { data: income },
       { data: budget },
-      { data: savingsGoals },
+      { data: savingsGoals, error: savingsGoalsError },
       { data: catBudgets },
     ] = await Promise.all([
       supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }),
@@ -222,9 +222,19 @@ export const useSpendStore = create<SpendState>()(
       commitments:   (commitments   ?? []).map((r) => mergeCommitment(r as Record<string, unknown>)),
       incomeEntries: (income        ?? []).map(mapDbIncome),
       budget:        (budget as { amount: number } | null)?.amount ?? null,
-      savingsGoals:  (savingsGoals  ?? []).map(mapDbSavingsGoal),
       isLoading:     false,
     };
+
+    // Only overwrite savingsGoals if the table exists and Supabase returned successfully.
+    // If the table hasn't been created yet, keep whatever persist/localStorage already loaded.
+    if (!savingsGoalsError && savingsGoals !== null) {
+      update.savingsGoals = (savingsGoals as Record<string, unknown>[]).map(mapDbSavingsGoal);
+    } else if (savingsGoalsError) {
+      console.warn(
+        'savings_goals table not found — keeping local state. Run the SQL in the store file to create it.',
+        savingsGoalsError.message,
+      );
+    }
 
     // Only overwrite categoryBudgets if Supabase returned rows.
     // If the table doesn't exist yet, keep whatever persist/localStorage already loaded.
@@ -569,6 +579,27 @@ export const useSpendStore = create<SpendState>()(
   },
 
   // ── Savings Goals ──────────────────────────────────────────────────────────
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │  SUPABASE SETUP — run this once in the Supabase SQL Editor:             │
+  // │                                                                         │
+  // │  CREATE TABLE savings_goals (                                           │
+  // │    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),            │
+  // │    user_id       uuid REFERENCES auth.users NOT NULL,                   │
+  // │    name          text NOT NULL,                                         │
+  // │    target_amount numeric NOT NULL DEFAULT 0,                            │
+  // │    saved_amount  numeric NOT NULL DEFAULT 0,                            │
+  // │    created_at    timestamptz DEFAULT now()                              │
+  // │  );                                                                     │
+  // │  ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;                  │
+  // │  CREATE POLICY "Users manage their own savings goals"                   │
+  // │    ON savings_goals FOR ALL                                             │
+  // │    USING (auth.uid() = user_id);                                        │
+  // │                                                                         │
+  // │  -- Also run these if paid_at resets on refresh:                       │
+  // │  ALTER TABLE bnpl_items    ADD COLUMN IF NOT EXISTS paid_at timestamptz;│
+  // │  ALTER TABLE commitments   ADD COLUMN IF NOT EXISTS paid_at timestamptz;│
+  // └─────────────────────────────────────────────────────────────────────────┘
 
   addSavingsGoal: (goal) => {
     const id = crypto.randomUUID();
@@ -582,10 +613,16 @@ export const useSpendStore = create<SpendState>()(
       name:          full.name,
       target_amount: full.targetAmount,
       saved_amount:  full.savedAmount,
-    }).then(({ error }) => { if (error) console.error('addSavingsGoal:', error); });
+    }).then(({ error }) => {
+      if (error) {
+        console.error('addSavingsGoal: Supabase insert failed. Make sure the savings_goals table exists (see SQL comment above).', error);
+        set((state) => ({ savingsGoals: state.savingsGoals.filter((g) => g.id !== id) }));
+      }
+    });
   },
 
   updateSavingsGoal: (id, updates) => {
+    const prev = get().savingsGoals.find((g) => g.id === id);
     set((state) => ({
       savingsGoals: state.savingsGoals.map((g) => g.id === id ? { ...g, ...updates } : g),
     }));
@@ -595,16 +632,33 @@ export const useSpendStore = create<SpendState>()(
     if (updates.name          !== undefined) patch.name          = updates.name;
     if (updates.targetAmount  !== undefined) patch.target_amount = updates.targetAmount;
     if (updates.savedAmount   !== undefined) patch.saved_amount  = updates.savedAmount;
-    supabase.from('savings_goals').update(patch).eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateSavingsGoal:', error); });
+    supabase.from('savings_goals')
+      .update(patch)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('updateSavingsGoal:', error);
+          if (prev) set((state) => ({ savingsGoals: state.savingsGoals.map((g) => g.id === id ? prev : g) }));
+        }
+      });
   },
 
   removeSavingsGoal: (id) => {
+    const prev = get().savingsGoals.find((g) => g.id === id);
     set((state) => ({ savingsGoals: state.savingsGoals.filter((g) => g.id !== id) }));
     const { userId } = get();
     if (!userId) return;
-    supabase.from('savings_goals').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('removeSavingsGoal:', error); });
+    supabase.from('savings_goals')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('removeSavingsGoal:', error);
+          if (prev) set((state) => ({ savingsGoals: [...state.savingsGoals, prev] }));
+        }
+      });
   },
 }),
 {
