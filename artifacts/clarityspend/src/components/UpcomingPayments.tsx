@@ -76,15 +76,27 @@ export function UpcomingPayments() {
       }),
     ...bnplItems
       .filter((b) => !!b.dueDate && !isPaidThisMonth(b.paidAt))
-      .map((b) => ({
-        id: b.id,
-        name: b.name,
-        amount: b.monthlyPayment,
-        dueDate: b.dueDate!,
-        daysUntil: differenceInCalendarDays(startOfDay(parseISO(b.dueDate!)), today),
-        type: 'bnpl' as const,
-        frequency: `BNPL · ${b.installments} months`,
-      })),
+      .map((b) => {
+        // Advance the display date month-by-month until it is today or in the future.
+        // This means a BNPL with a recurring monthly due date never shows as permanently
+        // overdue — it always shows the next upcoming payment date.
+        // The stored dueDate is never modified here.
+        const storedDate = parseISO(b.dueDate!);
+        const dayOfMonth = getDate(storedDate);
+        const thisMonthDue = startOfDay(setDate(today, dayOfMonth));
+        const effectiveDate = isBefore(thisMonthDue, today)
+          ? addMonths(thisMonthDue, 1)
+          : thisMonthDue;
+        return {
+          id: b.id,
+          name: b.name,
+          amount: b.monthlyPayment,
+          dueDate: format(effectiveDate, 'yyyy-MM-dd'),
+          daysUntil: differenceInCalendarDays(effectiveDate, today),
+          type: 'bnpl' as const,
+          frequency: `BNPL · ${b.installments} months`,
+        };
+      }),
   ].sort((a, b) => a.daysUntil - b.daysUntil);
 
   const entries          = allEntries.filter((e) => e.daysUntil <= window);
