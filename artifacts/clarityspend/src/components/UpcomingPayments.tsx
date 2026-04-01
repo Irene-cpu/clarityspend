@@ -17,6 +17,7 @@ interface PaymentEntry {
   daysUntil: number;
   type: 'commitment' | 'bnpl';
   frequency: string;
+  paidThisMonth: boolean;
 }
 
 function isPaidThisMonth(paidAt?: string): boolean {
@@ -26,7 +27,12 @@ function isPaidThisMonth(paidAt?: string): boolean {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-function urgencyStyle(daysUntil: number) {
+function urgencyStyle(daysUntil: number, paid: boolean) {
+  if (paid) return {
+    badge: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    row:   'border-emerald-200 bg-emerald-50/40 opacity-80',
+    label: `Next due in ${daysUntil} days`,
+  };
   if (daysUntil < 0)   return { badge: 'bg-red-100 text-red-700 border-red-200',         row: 'border-red-200 bg-red-50/50',       label: 'Overdue' };
   if (daysUntil === 0) return { badge: 'bg-red-100 text-red-700 border-red-200',          row: 'border-red-200 bg-red-50/50',       label: 'Due today' };
   if (daysUntil === 1) return { badge: 'bg-orange-100 text-orange-700 border-orange-200', row: 'border-orange-200 bg-orange-50/50', label: 'Tomorrow' };
@@ -46,7 +52,6 @@ export function UpcomingPayments() {
 
   const [window, setWindow] = useState<7 | 14>(14);
 
-  // Reset paid statuses if they're from a previous month
   useEffect(() => {
     resetPaidCommitmentsForNewMonth();
     resetPaidBnplForNewMonth();
@@ -54,16 +59,22 @@ export function UpcomingPayments() {
 
   const today = startOfDay(new Date());
 
+  // Build entries for ALL commitments (paid and unpaid).
+  // Paid → show next month's date so the user can plan ahead.
+  // Unpaid overdue → advance to this month's day or next month (same logic as before).
   const allEntries: PaymentEntry[] = [
     ...commitments
-      .filter((c) => !!c.dueDate && !isPaidThisMonth(c.paidAt))
+      .filter((c) => !!c.dueDate)
       .map((c) => {
-        const storedDate = parseISO(c.dueDate!);
-        const dayOfMonth = getDate(storedDate);
+        const paid = isPaidThisMonth(c.paidAt);
+        const dayOfMonth = getDate(parseISO(c.dueDate!));
         const thisMonthDue = startOfDay(setDate(today, dayOfMonth));
-        const effectiveDate = isBefore(thisMonthDue, today)
-          ? addMonths(thisMonthDue, 1)
-          : thisMonthDue;
+        // If already paid this month, advance to next month's date.
+        // If unpaid but past this month's date, also advance (overdue → next month).
+        const effectiveDate =
+          paid || isBefore(thisMonthDue, today)
+            ? addMonths(thisMonthDue, 1)
+            : thisMonthDue;
         return {
           id: c.id,
           name: c.name,
@@ -72,21 +83,19 @@ export function UpcomingPayments() {
           daysUntil: differenceInCalendarDays(effectiveDate, today),
           type: 'commitment' as const,
           frequency: 'Monthly commitment',
+          paidThisMonth: paid,
         };
       }),
     ...bnplItems
-      .filter((b) => !!b.dueDate && !isPaidThisMonth(b.paidAt))
+      .filter((b) => !!b.dueDate)
       .map((b) => {
-        // Advance the display date month-by-month until it is today or in the future.
-        // This means a BNPL with a recurring monthly due date never shows as permanently
-        // overdue — it always shows the next upcoming payment date.
-        // The stored dueDate is never modified here.
-        const storedDate = parseISO(b.dueDate!);
-        const dayOfMonth = getDate(storedDate);
+        const paid = isPaidThisMonth(b.paidAt);
+        const dayOfMonth = getDate(parseISO(b.dueDate!));
         const thisMonthDue = startOfDay(setDate(today, dayOfMonth));
-        const effectiveDate = isBefore(thisMonthDue, today)
-          ? addMonths(thisMonthDue, 1)
-          : thisMonthDue;
+        const effectiveDate =
+          paid || isBefore(thisMonthDue, today)
+            ? addMonths(thisMonthDue, 1)
+            : thisMonthDue;
         return {
           id: b.id,
           name: b.name,
@@ -95,25 +104,32 @@ export function UpcomingPayments() {
           daysUntil: differenceInCalendarDays(effectiveDate, today),
           type: 'bnpl' as const,
           frequency: `BNPL · ${b.installments} months`,
+          paidThisMonth: paid,
         };
       }),
-  ].sort((a, b) => a.daysUntil - b.daysUntil);
+  ].sort((a, b) => {
+    // Unpaid entries first, then paid (sorted by daysUntil within each group)
+    if (a.paidThisMonth !== b.paidThisMonth) return a.paidThisMonth ? 1 : -1;
+    return a.daysUntil - b.daysUntil;
+  });
 
-  const entries          = allEntries.filter((e) => e.daysUntil <= window);
-  const overdueEntries   = entries.filter((e) => e.daysUntil < 0);
-  const upcomingEntries  = entries.filter((e) => e.daysUntil >= 0);
-  const sevenDayEntries  = entries.filter((e) => e.daysUntil >= 0 && e.daysUntil <= 7);
+  // Unpaid entries filtered by the day window for summary cards
+  const unpaidEntries    = allEntries.filter((e) => !e.paidThisMonth);
+  const windowUnpaid     = unpaidEntries.filter((e) => e.daysUntil <= window);
+  const overdueEntries   = windowUnpaid.filter((e) => e.daysUntil < 0);
+  const upcomingEntries  = windowUnpaid.filter((e) => e.daysUntil >= 0);
+  const sevenDayEntries  = upcomingEntries.filter((e) => e.daysUntil <= 7);
+  const paidEntries      = allEntries.filter((e) => e.paidThisMonth);
 
   const overdueTotal  = overdueEntries.reduce((sum, e) => sum + e.amount, 0);
   const windowTotal   = upcomingEntries.reduce((sum, e) => sum + e.amount, 0);
   const sevenDayTotal = sevenDayEntries.reduce((sum, e) => sum + e.amount, 0);
 
-  const paidThisMonthCount =
-    commitments.filter((c) => isPaidThisMonth(c.paidAt)).length +
-    bnplItems.filter((b) => isPaidThisMonth(b.paidAt)).length;
+  const paidThisMonthCount = paidEntries.length;
 
   const hasItems = commitments.some((c) => c.dueDate) || bnplItems.some((b) => b.dueDate);
-  const hasDue   = entries.length > 0;
+  // Show list if any unpaid entries in window OR any paid entries
+  const hasDue   = windowUnpaid.length > 0 || paidEntries.length > 0;
 
   const handleMarkPaid = (entry: PaymentEntry) => {
     if (entry.type === 'commitment') toggleCommitmentPaid(entry.id);
@@ -151,22 +167,12 @@ export function UpcomingPayments() {
           </div>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Auto-generated from your commitments and BNPL plans. Mark items as paid to hide them until next month.
+          Paid items automatically show next month&apos;s due date. Mark items as paid to keep track.
         </p>
-
-        {/* Paid this month badge */}
-        {paidThisMonthCount > 0 && (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <p className="text-xs font-medium text-emerald-700">
-              {paidThisMonthCount} payment{paidThisMonthCount > 1 ? 's' : ''} marked as paid this month — will reappear next month.
-            </p>
-          </div>
-        )}
 
         {/* Summary totals */}
         <AnimatePresence>
-          {hasDue && (
+          {(windowUnpaid.length > 0 || overdueEntries.length > 0) && (
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -224,33 +230,30 @@ export function UpcomingPayments() {
           </div>
         )}
 
-        {/* Has due dates but nothing in current window (could be all paid or out of window) */}
+        {/* Has due dates but nothing in window and nothing paid */}
         {hasItems && !hasDue && (
           <div className="text-center py-8">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-400 flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <p className="text-sm font-medium text-muted-foreground">
-              {paidThisMonthCount > 0 ? 'All payments handled!' : `All clear for the next ${window} days`}
+              {`All clear for the next ${window} days`}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {paidThisMonthCount > 0
-                ? 'Every upcoming payment in this window is marked as paid.'
-                : 'No payments due in this window.'
-              }
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">No payments due in this window.</p>
           </div>
         )}
 
         {/* Payment list */}
-        {entries.length > 0 && (
+        {hasDue && (
           <div className="space-y-2">
+
+            {/* Unpaid entries within the window */}
             <AnimatePresence>
-              {entries.map((entry, i) => {
-                const s = urgencyStyle(entry.daysUntil);
+              {windowUnpaid.map((entry, i) => {
+                const s = urgencyStyle(entry.daysUntil, false);
                 return (
                   <motion.div
-                    key={`${entry.id}-${window}`}
+                    key={`${entry.id}-${window}-unpaid`}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, height: 0, marginBottom: 0 }}
@@ -260,28 +263,20 @@ export function UpcomingPayments() {
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                       entry.type === 'bnpl' ? 'bg-sky-100 text-sky-600' : 'bg-teal-100 text-teal-600'
                     }`}>
-                      {entry.type === 'bnpl'
-                        ? <CreditCard className="w-3.5 h-3.5" />
-                        : <Landmark className="w-3.5 h-3.5" />
-                      }
+                      {entry.type === 'bnpl' ? <CreditCard className="w-3.5 h-3.5" /> : <Landmark className="w-3.5 h-3.5" />}
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{entry.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(parseISO(entry.dueDate), 'EEE, d MMM yyyy')} · {entry.frequency}
                       </p>
                     </div>
-
                     <p className="text-sm font-bold text-foreground tabular-nums shrink-0">
                       {formatRM(entry.amount)}
                     </p>
-
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 hidden sm:inline ${s.badge}`}>
                       {s.label}
                     </span>
-
-                    {/* Mark as Paid button */}
                     <button
                       onClick={() => handleMarkPaid(entry)}
                       title="Mark as paid"
@@ -294,6 +289,60 @@ export function UpcomingPayments() {
                 );
               })}
             </AnimatePresence>
+
+            {/* Divider between unpaid and paid */}
+            {windowUnpaid.length > 0 && paidEntries.length > 0 && (
+              <div className="flex items-center gap-2 py-1">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Paid this month — next due
+                </span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+            )}
+
+            {/* Paid entries — always shown, displaying next month's date */}
+            <AnimatePresence>
+              {paidEntries.map((entry, i) => {
+                const s = urgencyStyle(entry.daysUntil, true);
+                return (
+                  <motion.div
+                    key={`${entry.id}-paid`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.035 }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${s.row}`}
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-100 text-emerald-600">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-emerald-800 truncate">{entry.name}</p>
+                      <p className="text-xs text-emerald-600/80 mt-0.5">
+                        Next: {format(parseISO(entry.dueDate), 'EEE, d MMM yyyy')} · {entry.frequency}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-emerald-700 tabular-nums shrink-0">
+                      {formatRM(entry.amount)}
+                    </p>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 hidden sm:inline ${s.badge}`}>
+                      <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                      Paid ✓
+                    </span>
+                    {/* Undo button — lets the user unmark paid if they tapped by mistake */}
+                    <button
+                      onClick={() => handleMarkPaid(entry)}
+                      title="Unmark as paid"
+                      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all duration-150 shrink-0"
+                    >
+                      Undo
+                    </button>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
           </div>
         )}
 
