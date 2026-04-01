@@ -143,7 +143,7 @@ interface SpendState {
   addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
   updateCommitment: (id: string, updates: Omit<Commitment, 'id'>) => void;
   removeCommitment: (id: string) => void;
-  toggleCommitmentPaid: (id: string) => void;
+  toggleCommitmentPaid: (id: string) => Promise<void>;
   resetPaidCommitmentsForNewMonth: () => void;
 
   addIncome: (entry: Omit<IncomeEntry, 'id'>) => void;
@@ -500,32 +500,67 @@ export const useSpendStore = create<SpendState>()(
       .then(({ error }) => { if (error) console.error('removeCommitment:', error); });
   },
 
-  toggleCommitmentPaid: (id) => {
+  // ── IMPORTANT: paid_at column must exist in Supabase ──────────────────────
+  //
+  // If toggling paid status reverts immediately, the paid_at column is missing.
+  // Run this SQL in your Supabase SQL Editor to fix it:
+  //
+  //   ALTER TABLE commitments ADD COLUMN IF NOT EXISTS paid_at timestamptz;
+  //   ALTER TABLE bnpl_items  ADD COLUMN IF NOT EXISTS paid_at timestamptz;
+  //
+  // ──────────────────────────────────────────────────────────────────────────
+
+  toggleCommitmentPaid: async (id) => {
     const commitment = get().commitments.find((c) => c.id === id);
     if (!commitment) return;
     const prevPaidAt = commitment.paidAt;
     const newPaidAt = commitment.paidAt ? undefined : new Date().toISOString();
+
+    // Optimistic update
     set((state) => ({
       commitments: state.commitments.map((c) =>
         c.id === id ? { ...c, paidAt: newPaidAt } : c
       ),
     }));
+
     const { userId } = get();
     if (!userId) return;
-    supabase.from('commitments')
+
+    const { error } = await supabase
+      .from('commitments')
       .update({ paid_at: newPaidAt ?? null })
       .eq('id', id)
-      .eq('user_id', userId)
-      .then(({ error }) => {
-        if (error) {
-          console.error('toggleCommitmentPaid: Supabase update failed — paid_at column may need to be added. Run: ALTER TABLE commitments ADD COLUMN IF NOT EXISTS paid_at timestamptz;', error);
-          set((state) => ({
-            commitments: state.commitments.map((c) =>
-              c.id === id ? { ...c, paidAt: prevPaidAt } : c
-            ),
-          }));
-        }
-      });
+      .eq('user_id', userId);
+
+    if (error) {
+      // Revert the optimistic update
+      set((state) => ({
+        commitments: state.commitments.map((c) =>
+          c.id === id ? { ...c, paidAt: prevPaidAt } : c
+        ),
+      }));
+      console.error(
+        '[toggleCommitmentPaid] Supabase UPDATE failed.\n' +
+        'If this keeps happening, run this SQL in your Supabase dashboard:\n' +
+        '  ALTER TABLE commitments ADD COLUMN IF NOT EXISTS paid_at timestamptz;\n' +
+        'Supabase error:', error
+      );
+      throw new Error(
+        error.code === '42703'   // undefined_column
+          ? 'The paid_at column is missing from the commitments table. Run the SQL migration shown in the browser console.'
+          : `Supabase error (${error.code}): ${error.message}`
+      );
+    }
+
+    // Success — re-fetch to confirm DB state matches local state
+    const { data: rows } = await supabase
+      .from('commitments')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (rows) {
+      set({ commitments: (rows as Record<string, unknown>[]).map(mapDbCommitment) });
+    }
   },
 
   resetPaidCommitmentsForNewMonth: () => {

@@ -4,6 +4,7 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import { Landmark, Trash2, Plus, CalendarDays, Pencil, X, CheckCircle2, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
@@ -20,12 +21,31 @@ export function MonthlyCommitments() {
     toggleCommitmentPaid,
     resetPaidCommitmentsForNewMonth,
   } = useSpendStore();
+  const { toast } = useToast();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const handleTogglePaid = async (id: string) => {
+    if (togglingId) return;   // prevent double-click
+    setTogglingId(id);
+    try {
+      await toggleCommitmentPaid(id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update paid status.';
+      toast({
+        variant: 'destructive',
+        title: 'Could not save paid status',
+        description: msg,
+      });
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   useEffect(() => {
     resetPaidCommitmentsForNewMonth();
@@ -226,21 +246,27 @@ export function MonthlyCommitments() {
                       >
                         {/* Mark as Paid toggle */}
                         <button
-                          onClick={() => toggleCommitmentPaid(c.id)}
+                          onClick={() => handleTogglePaid(c.id)}
+                          disabled={!!togglingId}
                           aria-label={isPaid ? 'Mark as unpaid' : 'Mark as paid'}
                           title={isPaid ? 'Click to unmark' : 'Mark as paid'}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 ${
                             isBeingEdited
                               ? 'bg-amber-100 text-amber-500 cursor-default pointer-events-none'
+                              : togglingId === c.id
+                              ? 'bg-slate-100 text-slate-400 cursor-wait'
                               : isPaid
                               ? 'bg-green-100 text-green-600 hover:bg-green-200'
                               : 'bg-slate-100 text-slate-400 hover:bg-teal-100 hover:text-teal-600'
                           }`}
                         >
-                          {isPaid
-                            ? <CheckCircle2 className="w-4 h-4" />
-                            : <Circle className="w-4 h-4" />
-                          }
+                          {togglingId === c.id ? (
+                            <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                          ) : isPaid ? (
+                            <CheckCircle2 className="w-4 h-4" />
+                          ) : (
+                            <Circle className="w-4 h-4" />
+                          )}
                         </button>
 
                         {/* Name + date */}
