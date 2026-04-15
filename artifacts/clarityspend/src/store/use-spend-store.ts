@@ -126,6 +126,7 @@ interface SpendState {
   clearAll: () => void;
 
   savingsTableMissing: boolean;
+  bnplPaidAtMissing: boolean;
 
   setBudget: (amount: number) => void;
   setCategoryBudget: (category: ExpenseCategory, amount: number | null) => void;
@@ -139,7 +140,7 @@ interface SpendState {
   addBnplItem: (item: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
   updateBnplItem: (id: string, updates: Omit<BnplItem, 'id' | 'monthlyPayment'>) => void;
   removeBnplItem: (id: string) => void;
-  toggleBnplPaid: (id: string) => void;
+  toggleBnplPaid: (id: string) => Promise<void>;
   resetPaidBnplForNewMonth: () => void;
 
   addCommitment: (commitment: Omit<Commitment, 'id'>) => void;
@@ -175,6 +176,7 @@ export const useSpendStore = create<SpendState>()(
   categoryBudgets: {},
   editingExpenseId: null,
   savingsTableMissing: false,
+  bnplPaidAtMissing: false,
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -410,32 +412,54 @@ export const useSpendStore = create<SpendState>()(
       .then(({ error }) => { if (error) console.error('removeBnplItem:', error); });
   },
 
-  toggleBnplPaid: (id) => {
+  toggleBnplPaid: async (id) => {
+    const { toast } = await import('sonner');
     const item = get().bnplItems.find((b) => b.id === id);
     if (!item) return;
     const prevPaidAt = item.paidAt;
     const newPaidAt = item.paidAt ? undefined : new Date().toISOString();
+
+    // Optimistic update
     set((state) => ({
       bnplItems: state.bnplItems.map((b) =>
         b.id === id ? { ...b, paidAt: newPaidAt } : b
       ),
     }));
+
     const { userId } = get();
     if (!userId) return;
-    supabase.from('bnpl_items')
+
+    const { error } = await supabase
+      .from('bnpl_items')
       .update({ paid_at: newPaidAt ?? null })
       .eq('id', id)
-      .eq('user_id', userId)
-      .then(({ error }) => {
-        if (error) {
-          console.error('toggleBnplPaid: Supabase update failed — paid_at column may need to be added. Run: ALTER TABLE bnpl_items ADD COLUMN IF NOT EXISTS paid_at timestamptz;', error);
-          set((state) => ({
-            bnplItems: state.bnplItems.map((b) =>
-              b.id === id ? { ...b, paidAt: prevPaidAt } : b
-            ),
-          }));
-        }
-      });
+      .eq('user_id', userId);
+
+    if (error) {
+      // Revert optimistic update
+      set((state) => ({
+        bnplItems: state.bnplItems.map((b) =>
+          b.id === id ? { ...b, paidAt: prevPaidAt } : b
+        ),
+        bnplPaidAtMissing: true,
+      }));
+
+      const isMissingColumn = error.code === '42703' || error.message?.includes('paid_at');
+      if (isMissingColumn) {
+        toast.error('BNPL paid status could not be saved', {
+          description: 'The paid_at column is missing from the bnpl_items table. See the banner in the BNPL section for the SQL fix.',
+          duration: 6000,
+        });
+      } else {
+        toast.error('Failed to update paid status', {
+          description: error.message,
+          duration: 4000,
+        });
+      }
+      console.error('toggleBnplPaid:', error);
+    } else {
+      set({ bnplPaidAtMissing: false });
+    }
   },
 
   resetPaidBnplForNewMonth: () => {

@@ -4,12 +4,12 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays, Pencil, X, CheckCircle2, RotateCcw } from 'lucide-react';
+import { CreditCard, Trash2, Plus, CalendarClock, CalendarDays, Pencil, X, CheckCircle2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 
 export function BnplTracker() {
-  const { budget, bnplItems, addBnplItem, updateBnplItem, removeBnplItem, toggleBnplPaid } = useSpendStore();
+  const { budget, bnplItems, addBnplItem, updateBnplItem, removeBnplItem, toggleBnplPaid, bnplPaidAtMissing } = useSpendStore();
 
   function isPaidThisMonth(paidAt?: string): boolean {
     if (!paidAt) return false;
@@ -92,6 +92,28 @@ export function BnplTracker() {
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
           Track Buy Now, Pay Later plans. Set a due date so upcoming payments are tracked automatically.
         </p>
+
+        {/* paid_at column missing warning */}
+        {bnplPaidAtMissing && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-800">Paid status can't be saved</p>
+                <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  The <code className="bg-amber-100 rounded px-1">paid_at</code> column is missing from your
+                  Supabase <code className="bg-amber-100 rounded px-1">bnpl_items</code> table.
+                  Run this SQL in your{' '}
+                  <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer"
+                    className="underline font-medium">Supabase SQL Editor</a>:
+                </p>
+                <pre className="mt-2 text-[10px] bg-amber-100 rounded-lg p-2.5 overflow-x-auto text-amber-900 leading-relaxed select-all">{
+`ALTER TABLE bnpl_items ADD COLUMN IF NOT EXISTS paid_at timestamptz;`
+                }</pre>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isEditing && (
           <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
