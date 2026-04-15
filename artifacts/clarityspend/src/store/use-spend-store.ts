@@ -158,6 +158,7 @@ interface SpendState {
   removeSavingsGoal: (id: string) => void;
 
   runMonthlyResets: () => void;
+  __testForceReset: () => void; // testing only
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -819,6 +820,12 @@ export const useSpendStore = create<SpendState>()(
     resetPaidCommitmentsForNewMonth();
     resetPaidBnplForNewMonth();
     set({ lastResetMonth: key });
+  },
+
+  __testForceReset: () => {
+    console.log('[RESET] Forced test trigger requested!');
+    set({ lastResetMonth: null });
+    get().runMonthlyResets();
   },
 }),
 {

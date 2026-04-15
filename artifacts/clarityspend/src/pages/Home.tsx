@@ -12,6 +12,7 @@ import { IncomeTracker } from '@/components/IncomeTracker';
 import { SavingsGoals } from '@/components/SavingsGoals';
 import { CategoryBudgets } from '@/components/CategoryBudgets';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSpendStore } from '@/store/use-spend-store';
 import { Sparkles, LogOut, LayoutDashboard, Receipt, CalendarCheck, Wallet, PiggyBank } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -80,6 +81,7 @@ function StickyNav() {
 
 export default function Home() {
   const { user, signOut } = useAuth();
+  const testForceReset = useSpendStore(s => s.__testForceReset);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -184,6 +186,15 @@ export default function Home() {
             <div className="lg:col-span-5">
               <ExpenseHistory />
             </div>
+          </div>
+          
+          <div className="mt-12 text-center">
+            <button 
+              onClick={testForceReset}
+              className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+            >
+              Test monthly reset (force trigger)
+            </button>
           </div>
         </motion.div>
       </main>
