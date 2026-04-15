@@ -25,7 +25,6 @@ const CATEGORY_STYLES: Record<ExpenseCategory, { badge: string; dot: string }> =
   Bills:          { badge: 'bg-orange-100 text-orange-700 border-orange-200',   dot: 'bg-orange-400' },
   Entertainment:  { badge: 'bg-pink-100 text-pink-700 border-pink-200',        dot: 'bg-pink-400' },
   Other:          { badge: 'bg-gray-100 text-gray-600 border-gray-200',        dot: 'bg-gray-400' },
-  Savings:        { badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
 };
 
 export function ExpenseHistory() {

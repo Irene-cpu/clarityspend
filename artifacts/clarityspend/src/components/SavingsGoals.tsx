@@ -8,7 +8,7 @@ import { PiggyBank, Trash2, Plus, Pencil, X, CheckCircle2, TrendingUp } from 'lu
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function SavingsGoals() {
-  const { savingsGoals, addSavingsGoal, updateSavingsGoal, removeSavingsGoal, addExpense } = useSpendStore();
+  const { savingsGoals, addSavingsGoal, updateSavingsGoal, removeSavingsGoal } = useSpendStore();
 
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -49,7 +49,7 @@ export function SavingsGoals() {
     resetForm();
   };
 
-  /** Save an inline progress update. Creates an expense for any positive delta. */
+  /** Save an inline progress update — updates the goal only, no expense created. */
   const saveProgress = (id: string) => {
     const delta = parseFloat(progressValue);
     if (isNaN(delta) || delta <= 0) return;
@@ -61,13 +61,6 @@ export function SavingsGoals() {
 
     if (actualDelta > 0) {
       updateSavingsGoal(id, { savedAmount: newSaved });
-      addExpense({
-        name: `Savings: ${goal.name}`,
-        amount: actualDelta,
-        category: 'Savings',
-        paymentType: 'Normal',
-        date: new Date().toISOString(),
-      });
     }
 
     setProgressEditId(null);
@@ -85,31 +78,10 @@ export function SavingsGoals() {
     if (saved > target)               { setError('Saved amount cannot exceed target.'); return; }
 
     if (isEditing && editingId) {
-      const oldGoal = savingsGoals.find((g) => g.id === editingId);
-      const oldSaved = oldGoal?.savedAmount ?? 0;
       updateSavingsGoal(editingId, { name: name.trim(), targetAmount: target, savedAmount: saved });
-      const delta = saved - oldSaved;
-      if (delta > 0) {
-        addExpense({
-          name: `Savings: ${name.trim()}`,
-          amount: delta,
-          category: 'Savings',
-          paymentType: 'Normal',
-          date: new Date().toISOString(),
-        });
-      }
       resetForm();
     } else {
       addSavingsGoal({ name: name.trim(), targetAmount: target, savedAmount: saved });
-      if (saved > 0) {
-        addExpense({
-          name: `Savings: ${name.trim()}`,
-          amount: saved,
-          category: 'Savings',
-          paymentType: 'Normal',
-          date: new Date().toISOString(),
-        });
-      }
       resetForm();
     }
   };
@@ -131,7 +103,7 @@ export function SavingsGoals() {
           <h2 className="text-lg font-bold text-foreground">Savings Goals</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Every amount you add is counted as a savings expense and deducted from your remaining balance.
+          Track progress toward your savings goals. These are kept separate from your expenses.
         </p>
 
         {/* Edit banner */}
@@ -322,7 +294,7 @@ export function SavingsGoals() {
                         {progressEditId === goal.id ? (
                           <div className="mt-3 space-y-1.5">
                             <p className="text-xs text-muted-foreground">
-                              How much are you adding today? This will be recorded as a Savings expense.
+                              How much are you adding today?
                             </p>
                             <div className="flex items-center gap-2">
                               <Input

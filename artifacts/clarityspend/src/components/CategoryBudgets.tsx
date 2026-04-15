@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Utensils, Car, ShoppingBag, Zap, Music, MoreHorizontal,
-  PiggyBank, Pencil, X, BarChart3, Trash2, CheckCircle2, AlertCircle, AlertTriangle,
+  Pencil, X, BarChart3, Trash2, CheckCircle2, AlertCircle, AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─── Category metadata ─────────────────────────────────────────────────────────
 
 const CATEGORIES: ExpenseCategory[] = [
-  'Food', 'Transportation', 'Shopping', 'Bills', 'Entertainment', 'Savings', 'Other',
+  'Food', 'Transportation', 'Shopping', 'Bills', 'Entertainment', 'Other',
 ];
 
 const META: Record<ExpenseCategory, {
@@ -35,7 +35,6 @@ const META: Record<ExpenseCategory, {
   Shopping:       { icon: ShoppingBag,   accentBar: 'bg-purple-400',  iconBg: 'bg-purple-50',  iconText: 'text-purple-600',  overBg: 'bg-red-50 border-red-200',   overAccent: 'bg-red-500',   progressGreen: 'bg-purple-400',  progressOrange: 'bg-orange-400', progressRed: 'bg-red-500', trackGreen: 'bg-purple-100', trackOrange: 'bg-orange-100', trackRed: 'bg-red-100' },
   Bills:          { icon: Zap,           accentBar: 'bg-orange-400',  iconBg: 'bg-orange-50',  iconText: 'text-orange-600',  overBg: 'bg-red-50 border-red-200',   overAccent: 'bg-red-500',   progressGreen: 'bg-orange-400',  progressOrange: 'bg-orange-500', progressRed: 'bg-red-500', trackGreen: 'bg-orange-100', trackOrange: 'bg-orange-200', trackRed: 'bg-red-100' },
   Entertainment:  { icon: Music,         accentBar: 'bg-pink-400',    iconBg: 'bg-pink-50',    iconText: 'text-pink-600',    overBg: 'bg-red-50 border-red-200',   overAccent: 'bg-red-500',   progressGreen: 'bg-pink-400',    progressOrange: 'bg-orange-400', progressRed: 'bg-red-500', trackGreen: 'bg-pink-100',  trackOrange: 'bg-orange-100', trackRed: 'bg-red-100' },
-  Savings:        { icon: PiggyBank,     accentBar: 'bg-emerald-500', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', overBg: 'bg-red-50 border-red-200',   overAccent: 'bg-red-500',   progressGreen: 'bg-emerald-500', progressOrange: 'bg-orange-400', progressRed: 'bg-red-500', trackGreen: 'bg-emerald-100', trackOrange: 'bg-orange-100', trackRed: 'bg-red-100' },
   Other:          { icon: MoreHorizontal,accentBar: 'bg-slate-400',   iconBg: 'bg-slate-50',   iconText: 'text-slate-500',   overBg: 'bg-red-50 border-red-200',   overAccent: 'bg-red-500',   progressGreen: 'bg-slate-400',   progressOrange: 'bg-orange-400', progressRed: 'bg-red-500', trackGreen: 'bg-slate-100', trackOrange: 'bg-orange-100', trackRed: 'bg-red-100' },
 };
 
