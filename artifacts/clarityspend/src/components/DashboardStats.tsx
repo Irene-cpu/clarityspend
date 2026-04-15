@@ -13,7 +13,7 @@ function StatCard({
   icon, label, value, subtext, colorScheme, delay = 0,
 }: {
   icon: React.ReactNode;
-  label: string;
+  label: React.ReactNode;
   value: string;
   subtext?: string;
   colorScheme: 'blue' | 'amber' | 'green' | 'orange' | 'red' | 'violet' | 'emerald' | 'indigo';
@@ -156,7 +156,7 @@ export function DashboardStats() {
           <div>
             <p className="text-sm font-semibold text-blue-800">Set up your income to unlock full insights</p>
             <p className="text-xs text-blue-600 mt-0.5">
-              Add income sources in the Income section to automatically calculate how much is available after commitments and what's remaining after expenses.
+              Add income sources in the Income section to automatically calculate how much is free to spend and what's remaining after expenses.
             </p>
           </div>
         </div>
@@ -205,11 +205,11 @@ export function DashboardStats() {
         <div className="flex-1 h-px bg-border" />
       </motion.div>
 
-      {/* Row 2: Available After Commitments & Remaining Money */}
+      {/* Row 2: Free to Spend & Remaining Money */}
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           icon={<Wallet className="w-5 h-5" />}
-          label="Available After Commitments"
+          label="Free to Spend"
           value={`${isAvailNeg ? '−' : ''}${formatRM(Math.abs(availableAfterCommit))}`}
           subtext={
             isAvailNeg
@@ -221,7 +221,12 @@ export function DashboardStats() {
         />
         <StatCard
           icon={<PiggyBank className="w-5 h-5" />}
-          label={isOverall ? 'Deficit' : 'Remaining Money'}
+          label={isOverall ? 'Over Budget By' : (
+            <div>
+              Remaining Money
+              <span className="block text-[10px] text-muted-foreground font-medium mt-0.5 normal-case tracking-normal">Budget minus all spending</span>
+            </div>
+          )}
           value={`${isOverall ? '−' : ''}${formatRM(Math.abs(remainingMoney))}`}
           subtext={
             isOverall
@@ -280,7 +285,7 @@ export function DashboardStats() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-bold leading-snug ${isOverall ? 'text-red-800' : 'text-orange-800'}`}>
                     {isOverall
-                      ? 'Your expenses exceed what\'s available after commitments.'
+                      ? 'Your expenses exceed what\'s free to spend.'
                       : 'You have used more than 80% of your income.'}
                   </p>
                   <p className={`text-xs mt-1 leading-relaxed ${isOverall ? 'text-red-600' : 'text-orange-600'}`}>
@@ -316,7 +321,7 @@ export function DashboardStats() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs font-medium text-muted-foreground mb-0.5">
-                    {isOverall ? 'Deficit' : 'Remaining'}
+                    {isOverall ? 'Over Budget By' : 'Remaining Money'}
                   </p>
                   <AnimatePresence mode="wait">
                     <motion.p
@@ -401,7 +406,7 @@ export function DashboardStats() {
                   <div className="flex items-center gap-1.5">
                     <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${isOverall ? 'bg-red-400' : 'bg-emerald-400'}`} />
                     <span className="text-xs text-muted-foreground font-medium truncate">
-                      {isOverall ? 'Deficit' : 'Remaining'}
+                      {isOverall ? 'Over Budget By' : 'Remaining Money'}
                     </span>
                   </div>
                   <AnimatePresence mode="wait">

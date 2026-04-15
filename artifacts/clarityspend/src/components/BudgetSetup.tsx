@@ -33,7 +33,7 @@ export function BudgetSetup() {
       </CardHeader>
       <CardContent>
         {isEditing ? (
-          <form onSubmit={handleSave} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <form onSubmit={handleSave} className="flex flex-col sm:flex-row gap-4 items-start sm:items-center pb-2 sm:pb-0">
             <div className="relative flex-1 w-full">
               <Input
                 type="number"
@@ -44,8 +44,9 @@ export function BudgetSetup() {
                 className="pl-14 text-lg font-medium"
                 autoFocus
               />
+              <p className="absolute -bottom-5 left-2 text-[10.5px] text-muted-foreground whitespace-nowrap">This is your total monthly spending limit</p>
             </div>
-            <Button type="submit" className="w-full sm:w-auto" disabled={!amount || isNaN(parseFloat(amount))}>
+            <Button type="submit" className="w-full sm:w-auto mt-6 sm:mt-0" disabled={!amount || isNaN(parseFloat(amount))}>
               Set Budget
             </Button>
           </form>
