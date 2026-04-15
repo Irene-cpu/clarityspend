@@ -69,7 +69,7 @@ function CategoryRow({
     isOver ? 'red' : isWarn ? 'orange' : 'green';
 
   const progressColor = level === 'red' ? meta.progressRed : level === 'orange' ? meta.progressOrange : meta.progressGreen;
-  const trackColor    = level === 'red' ? meta.trackRed    : level === 'orange' ? meta.trackOrange    : meta.trackGreen;
+  const trackColor    = pct === 0 ? 'bg-slate-100' : (level === 'red' ? meta.trackRed : level === 'orange' ? meta.trackOrange : meta.trackGreen);
   const pctColor      = level === 'red' ? 'text-red-600'  : level === 'orange' ? 'text-orange-500'    : 'text-muted-foreground';
 
   const startEdit = () => {
@@ -130,7 +130,8 @@ function CategoryRow({
               <button
                 onClick={onRemove}
                 title="Remove budget"
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                aria-label="Remove category budget"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -140,9 +141,10 @@ function CategoryRow({
               title={hasBudget ? 'Edit budget' : 'Set budget'}
               className={`p-1.5 rounded-lg transition-colors ${
                 editing
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
+                  ? 'bg-primary/20 text-primary'
+                  : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
               }`}
+              aria-label={hasBudget ? 'Edit category budget' : 'Set category budget'}
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -151,18 +153,18 @@ function CategoryRow({
 
         {/* Progress bar — only if budget is set */}
         {hasBudget && (
-          <div className="mt-1">
+          <div className="mt-2">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">
+              <span className="text-[11px] font-semibold text-foreground/80">
                 <span className="font-bold text-foreground">{formatRM(spent)}</span> of {formatRM(budget)} used 
-                <span className="opacity-50 mx-1">·</span> 
+                <span className="opacity-50 mx-1.5">·</span> 
                 {isOver ? (
                   <span className="text-red-600 font-bold">{formatRM(spent - budget)} over limit</span>
                 ) : (
-                  <span>{formatRM(budget - spent)} remaining</span>
+                  <span className="font-medium">{formatRM(budget - spent)} remaining</span>
                 )}
               </span>
-              <span className={`text-[11px] font-bold tabular-nums ${pctColor}`}>
+              <span className={`text-[11px] font-bold tabular-nums ${pct === 0 ? 'text-foreground/60' : pctColor}`}>
                 {pct.toFixed(0)}%
               </span>
             </div>
