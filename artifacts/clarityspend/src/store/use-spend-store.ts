@@ -127,9 +127,10 @@ interface SpendState {
 
   savingsTableMissing: boolean;
   bnplPaidAtMissing: boolean;
+  categoryTableMissing: boolean;
 
   setBudget: (amount: number) => void;
-  setCategoryBudget: (category: ExpenseCategory, amount: number | null) => void;
+  setCategoryBudget: (category: ExpenseCategory, amount: number | null) => Promise<void>;
 
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => void;
@@ -177,6 +178,7 @@ export const useSpendStore = create<SpendState>()(
   editingExpenseId: null,
   savingsTableMissing: false,
   bnplPaidAtMissing: false,
+  categoryTableMissing: false,
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -189,7 +191,7 @@ export const useSpendStore = create<SpendState>()(
       { data: income },
       { data: budget },
       { data: savingsGoals, error: savingsGoalsError },
-      { data: catBudgets },
+      { data: catBudgets, error: catBudgetsError },
     ] = await Promise.all([
       supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }),
       supabase.from('bnpl_items').select('*').eq('user_id', userId),
@@ -247,14 +249,17 @@ export const useSpendStore = create<SpendState>()(
       (update as Partial<SpendState>).savingsTableMissing = true;
     }
 
-    // Only overwrite categoryBudgets if Supabase returned rows.
-    // If the table doesn't exist yet, keep whatever persist/localStorage already loaded.
-    if (catBudgets && catBudgets.length > 0) {
+    // Only overwrite categoryBudgets if the table exists and Supabase returned successfully.
+    if (!catBudgetsError && catBudgets !== null) {
       const dbCatBudgets: CategoryBudgetMap = {};
       (catBudgets as Record<string, unknown>[]).forEach((row) => {
-        dbCatBudgets[row.category as ExpenseCategory] = row.budget as number;
+        dbCatBudgets[row.category as ExpenseCategory] = (row.budget_amount ?? row.budget) as number;
       });
       update.categoryBudgets = dbCatBudgets;
+      (update as Partial<SpendState>).categoryTableMissing = false;
+    } else if (catBudgetsError) {
+      console.warn('category_budgets table not found — keeping local state.', catBudgetsError.message);
+      (update as Partial<SpendState>).categoryTableMissing = true;
     }
 
     set(update);
@@ -283,7 +288,7 @@ export const useSpendStore = create<SpendState>()(
       .then(({ error }) => { if (error) console.error('setBudget:', error); });
   },
 
-  setCategoryBudget: (category, amount) => {
+  setCategoryBudget: async (category, amount) => {
     set((state) => {
       const next = { ...state.categoryBudgets };
       if (amount === null) {
@@ -293,16 +298,34 @@ export const useSpendStore = create<SpendState>()(
       }
       return { categoryBudgets: next };
     });
+    
     const { userId } = get();
     if (!userId) return;
+    
     if (amount === null) {
-      supabase.from('category_budgets').delete()
-        .eq('user_id', userId).eq('category', category)
-        .then(({ error }) => { if (error) console.error('deleteCategoryBudget:', error); });
+      const { error } = await supabase.from('category_budgets').delete()
+        .eq('user_id', userId).eq('category', category);
+      if (error) console.error('deleteCategoryBudget:', error);
     } else {
-      supabase.from('category_budgets')
-        .upsert({ user_id: userId, category, budget: amount }, { onConflict: 'user_id,category' })
-        .then(({ error }) => { if (error) console.error('setCategoryBudget:', error); });
+      const id = crypto.randomUUID(); // Fulfill text id requirement
+      const { error } = await supabase.from('category_budgets')
+        .upsert({ id, user_id: userId, category, budget_amount: amount }, { onConflict: 'user_id,category' });
+      
+      if (error) {
+        console.error('setCategoryBudget:', error);
+        set({ categoryTableMissing: true });
+        
+        const isMissingTable = error.code === '42P01' || error.message?.includes('does not exist'); // Postgres undefined_table
+        if (isMissingTable) {
+          const { toast } = await import('sonner');
+          toast.error('Category budget could not be saved', {
+            description: 'The category_budgets table is missing. See the banner in the Category Budgets section for the SQL fix.',
+            duration: 6000,
+          });
+        }
+      } else {
+        set({ categoryTableMissing: false });
+      }
     }
   },
 

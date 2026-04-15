@@ -244,7 +244,7 @@ function CategoryRow({
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function CategoryBudgets() {
-  const { expenses, categoryBudgets, setCategoryBudget } = useSpendStore();
+  const { expenses, categoryBudgets, setCategoryBudget, categoryTableMissing } = useSpendStore();
 
   // Current month's expenses per category
   const now = new Date();
@@ -298,8 +298,37 @@ export function CategoryBudgets() {
           )}
         </div>
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
-          Set a monthly budget per category. Updates automatically as you log expenses.
+          Set up budgets for specific categories to keep spending in check.
         </p>
+
+        {categoryTableMissing && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-800">Budgets can't be saved</p>
+                <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  The <code className="bg-amber-100 rounded px-1">category_budgets</code> table is missing from your
+                  Supabase database. Run this SQL in your{' '}
+                  <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer"
+                    className="underline font-medium">Supabase SQL Editor</a>:
+                </p>
+                <pre className="mt-2 text-[10px] bg-amber-100/70 border border-amber-200 rounded-lg p-2.5 overflow-x-auto text-amber-900 leading-relaxed select-all">{
+`CREATE TABLE IF NOT EXISTS category_budgets (
+  id text PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  category text NOT NULL,
+  budget_amount numeric NOT NULL,
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, category)
+);
+ALTER TABLE category_budgets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own category_budgets" ON category_budgets FOR ALL USING (auth.uid() = user_id);`
+                }</pre>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Category grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
