@@ -125,6 +125,8 @@ interface SpendState {
   loadAll: (userId: string) => Promise<void>;
   clearAll: () => void;
 
+  savingsTableMissing: boolean;
+
   setBudget: (amount: number) => void;
   setCategoryBudget: (category: ExpenseCategory, amount: number | null) => void;
 
@@ -172,6 +174,7 @@ export const useSpendStore = create<SpendState>()(
   savingsGoals: [],
   categoryBudgets: {},
   editingExpenseId: null,
+  savingsTableMissing: false,
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -233,11 +236,13 @@ export const useSpendStore = create<SpendState>()(
     // If the table hasn't been created yet, keep whatever persist/localStorage already loaded.
     if (!savingsGoalsError && savingsGoals !== null) {
       update.savingsGoals = (savingsGoals as Record<string, unknown>[]).map(mapDbSavingsGoal);
+      (update as Partial<SpendState>).savingsTableMissing = false;
     } else if (savingsGoalsError) {
       console.warn(
         'savings_goals table not found — keeping local state. Run the SQL in the store file to create it.',
         savingsGoalsError.message,
       );
+      (update as Partial<SpendState>).savingsTableMissing = true;
     }
 
     // Only overwrite categoryBudgets if Supabase returned rows.
@@ -654,8 +659,16 @@ export const useSpendStore = create<SpendState>()(
       saved_amount:  full.savedAmount,
     }).then(({ error }) => {
       if (error) {
-        console.error('addSavingsGoal: Supabase insert failed. Make sure the savings_goals table exists (see SQL comment above).', error);
-        set((state) => ({ savingsGoals: state.savingsGoals.filter((g) => g.id !== id) }));
+        // Do NOT roll back — goal stays in local state & localStorage.
+        // Once the user creates the savings_goals table the next insert will succeed.
+        console.warn(
+          'addSavingsGoal: Supabase insert failed — goal saved locally only.\n' +
+          'Create the savings_goals table in Supabase SQL Editor (SQL is in the store file).\n' +
+          'Error:', error.message,
+        );
+        set({ savingsTableMissing: true });
+      } else {
+        set({ savingsTableMissing: false });
       }
     });
   },

@@ -4,11 +4,11 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PiggyBank, Trash2, Plus, Pencil, X, CheckCircle2, TrendingUp } from 'lucide-react';
+import { PiggyBank, Trash2, Plus, Pencil, X, CheckCircle2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function SavingsGoals() {
-  const { savingsGoals, addSavingsGoal, updateSavingsGoal, removeSavingsGoal } = useSpendStore();
+  const { savingsGoals, addSavingsGoal, updateSavingsGoal, removeSavingsGoal, savingsTableMissing } = useSpendStore();
 
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -105,6 +105,38 @@ export function SavingsGoals() {
         <p className="text-sm text-muted-foreground mb-5 ml-[2.625rem]">
           Track progress toward your savings goals. These are kept separate from your expenses.
         </p>
+
+        {/* Supabase table missing warning */}
+        {savingsTableMissing && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-800">Database table not set up yet</p>
+                <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  Your goals are saved locally for now. To make them persist across devices and refreshes,
+                  run this SQL in your{' '}
+                  <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer"
+                    className="underline font-medium">Supabase SQL Editor</a>:
+                </p>
+                <pre className="mt-2 text-[10px] bg-amber-100 rounded-lg p-2.5 overflow-x-auto text-amber-900 leading-relaxed select-all">{
+`CREATE TABLE savings_goals (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid REFERENCES auth.users NOT NULL,
+  name          text NOT NULL,
+  target_amount numeric NOT NULL DEFAULT 0,
+  saved_amount  numeric NOT NULL DEFAULT 0,
+  created_at    timestamptz DEFAULT now()
+);
+ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage their own savings goals"
+  ON savings_goals FOR ALL
+  USING (auth.uid() = user_id);`
+                }</pre>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Edit banner */}
         {isEditing && (
