@@ -526,21 +526,27 @@ export const useSpendStore = create<SpendState>()(
       const paid = new Date(b.paidAt);
       return paid.getMonth() !== cm || paid.getFullYear() !== cy;
     });
+    
     if (toReset.length === 0) return;
+    
+    console.log(`[RESET] Triggering monthly reset for ${toReset.length} BNPL items`);
     set((state) => ({
       bnplItems: state.bnplItems.map((b) =>
         toReset.some((r) => r.id === b.id) ? { ...b, paidAt: undefined } : b
       ),
     }));
+    
     if (!userId) return;
+    
     Promise.all(
       toReset.map((b) =>
-        supabase.from('bnpl_items').update({ paid_at: null }).eq('id', b.id)
+        supabase.from('bnpl_items').update({ paid_at: null }).eq('id', b.id).eq('user_id', userId)
       )
     ).then((results) => {
       results.forEach(({ error }, i) => {
         if (error) console.error(`resetPaidBnpl[${toReset[i].id}]:`, error);
       });
+      console.log('[RESET] Successfully processed Supabase BNPL monthly resets');
     });
   },
 
@@ -656,21 +662,27 @@ export const useSpendStore = create<SpendState>()(
       const paid = new Date(c.paidAt);
       return paid.getMonth() !== cm || paid.getFullYear() !== cy;
     });
+    
     if (toReset.length === 0) return;
+    
+    console.log(`[RESET] Triggering monthly reset for ${toReset.length} commitments`);
     set((state) => ({
       commitments: state.commitments.map((c) =>
         toReset.some((r) => r.id === c.id) ? { ...c, paidAt: undefined } : c
       ),
     }));
+    
     if (!userId) return;
+    
     Promise.all(
       toReset.map((c) =>
-        supabase.from('commitments').update({ paid_at: null }).eq('id', c.id)
+        supabase.from('commitments').update({ paid_at: null }).eq('id', c.id).eq('user_id', userId)
       )
     ).then((results) => {
       results.forEach(({ error }, i) => {
         if (error) console.error(`resetPaidCommitment[${toReset[i].id}]:`, error);
       });
+      console.log('[RESET] Successfully processed Supabase Commitment monthly resets');
     });
   },
 
@@ -802,6 +814,8 @@ export const useSpendStore = create<SpendState>()(
     const key  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const { lastResetMonth, resetPaidCommitmentsForNewMonth, resetPaidBnplForNewMonth } = get();
     if (lastResetMonth === key) return;   // already ran for this month
+    
+    console.log(`[RESET] First login for month ${key}. Initializing monthly refresh routines...`);
     resetPaidCommitmentsForNewMonth();
     resetPaidBnplForNewMonth();
     set({ lastResetMonth: key });
