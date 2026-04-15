@@ -305,23 +305,22 @@ export const useSpendStore = create<SpendState>()(
     if (!userId) return;
     
     console.log('[SAVE] Attempting to set budget for category', category, 'to amount:', amount, 'User:', userId);
+    
+    // Log the actual user session from Supabase to verify it matches
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    console.log('[SAVE] Current Supabase Auth Session:', session?.user?.id, 'Store userId:', userId, 'Session Error:', sessionError);
+    
     if (amount === null) {
       const { error } = await supabase.from('category_budgets').delete()
         .eq('user_id', userId).eq('category', category);
       console.log('[SAVE] Delete response error:', error);
-      if (error) console.error('deleteCategoryBudget:', error);
+      if (error) {
+        console.error('deleteCategoryBudget:', error);
+        const { toast } = await import('sonner');
+        toast.error('Failed to delete category budget', { description: error.message });
+      }
     } else {
-      // NOTE: Do not pass a new `id` on upsert, otherwise Postgres might reject the query if it hits ON CONFLICT
-      // because you can't update a PRIMARY KEY id to a new random UUID. Just upsert user_id, category, and budget_amount.
-      // If the row doesn't exist, the DB will generate the default `gen_random_uuid()` id! Wait!
-      // The user used `id text PRIMARY KEY` without a default sequence in their SQL if they copied it directly?
-      // "CREATE TABLE IF NOT EXISTS category_budgets ( id text PRIMARY KEY, ... )"
-      // Wait, earlier I told them `id text PRIMARY KEY` WITHOUT a default. So passing `id` is required for inserts!
-      // But passing a new `id` causes issues on update.
-      // Easiest solution: user_id + category IS a composite unique key.
-      // Let's generate a consistent ID based on the user and category!
       const id = `${userId}_${category}`;
-      
       const payload = { id, user_id: userId, category, budget_amount: amount };
       console.log('[SAVE] Upsert payload:', payload);
       
@@ -332,18 +331,26 @@ export const useSpendStore = create<SpendState>()(
       
       if (error) {
         console.error('setCategoryBudget:', error);
-        set({ categoryTableMissing: true });
+        set({ categoryTableMissing: true }); // By default, assume the table might be missing if it fails
         
+        const { toast } = await import('sonner');
         const isMissingTable = error.code === '42P01' || error.message?.includes('does not exist'); // Postgres undefined_table
         if (isMissingTable) {
-          const { toast } = await import('sonner');
           toast.error('Category budget could not be saved', {
             description: 'The category_budgets table is missing. See the banner in the Category Budgets section for the SQL fix.',
             duration: 6000,
           });
+        } else {
+          // It's some other error, e.g. permission denied or column format
+          toast.error('Failed to save budget', {
+            description: `Database error: ${error.message} (Code: ${error.code})`,
+            duration: 8000,
+          });
         }
       } else {
         set({ categoryTableMissing: false });
+        // Also log success
+        console.log('[SAVE] Successfully committed category budget to Supabase!');
       }
     }
   },

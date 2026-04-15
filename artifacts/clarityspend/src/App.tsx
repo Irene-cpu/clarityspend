@@ -21,9 +21,11 @@ function AppShell() {
     } else if (!loading) {
       clearAll();
     }
-  }, [user?.id, loading]);
+  }, [user?.id, loading, loadAll, clearAll, runMonthlyResets]);
 
-  if (loading) {
+  const { isLoading: storeLoading } = useSpendStore();
+
+  if (loading || (user && storeLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
