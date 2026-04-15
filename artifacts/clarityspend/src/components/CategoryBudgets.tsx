@@ -328,7 +328,8 @@ export function CategoryBudgets() {
                     className="underline font-medium">Supabase SQL Editor</a>:
                 </p>
                 <pre className="mt-2 text-[10px] bg-amber-100/70 border border-amber-200 rounded-lg p-2.5 overflow-x-auto text-amber-900 leading-relaxed select-all">{
-`CREATE TABLE IF NOT EXISTS category_budgets (
+`-- Run this EXACT script in Supabase SQL Editor:
+CREATE TABLE IF NOT EXISTS category_budgets (
   id text PRIMARY KEY,
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   category text NOT NULL,
@@ -336,8 +337,12 @@ export function CategoryBudgets() {
   updated_at timestamptz DEFAULT now(),
   UNIQUE(user_id, category)
 );
+
 ALTER TABLE category_budgets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their own category_budgets" ON category_budgets FOR ALL USING (auth.uid() = user_id);`
+
+CREATE POLICY "Users can manage their own category_budgets" 
+  ON category_budgets FOR ALL 
+  USING (auth.uid() = user_id);`
                 }</pre>
               </div>
             </div>

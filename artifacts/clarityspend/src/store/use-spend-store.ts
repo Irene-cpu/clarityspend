@@ -250,11 +250,13 @@ export const useSpendStore = create<SpendState>()(
     }
 
     // Only overwrite categoryBudgets if the table exists and Supabase returned successfully.
+    console.log('[SYNC] Fetched category_budgets:', catBudgets, 'Error:', catBudgetsError);
     if (!catBudgetsError && catBudgets !== null) {
       const dbCatBudgets: CategoryBudgetMap = {};
       (catBudgets as Record<string, unknown>[]).forEach((row) => {
         dbCatBudgets[row.category as ExpenseCategory] = (row.budget_amount ?? row.budget) as number;
       });
+      console.log('[SYNC] Mapped to store state:', dbCatBudgets);
       update.categoryBudgets = dbCatBudgets;
       (update as Partial<SpendState>).categoryTableMissing = false;
     } else if (catBudgetsError) {
@@ -302,14 +304,31 @@ export const useSpendStore = create<SpendState>()(
     const { userId } = get();
     if (!userId) return;
     
+    console.log('[SAVE] Attempting to set budget for category', category, 'to amount:', amount, 'User:', userId);
     if (amount === null) {
       const { error } = await supabase.from('category_budgets').delete()
         .eq('user_id', userId).eq('category', category);
+      console.log('[SAVE] Delete response error:', error);
       if (error) console.error('deleteCategoryBudget:', error);
     } else {
-      const id = crypto.randomUUID(); // Fulfill text id requirement
+      // NOTE: Do not pass a new `id` on upsert, otherwise Postgres might reject the query if it hits ON CONFLICT
+      // because you can't update a PRIMARY KEY id to a new random UUID. Just upsert user_id, category, and budget_amount.
+      // If the row doesn't exist, the DB will generate the default `gen_random_uuid()` id! Wait!
+      // The user used `id text PRIMARY KEY` without a default sequence in their SQL if they copied it directly?
+      // "CREATE TABLE IF NOT EXISTS category_budgets ( id text PRIMARY KEY, ... )"
+      // Wait, earlier I told them `id text PRIMARY KEY` WITHOUT a default. So passing `id` is required for inserts!
+      // But passing a new `id` causes issues on update.
+      // Easiest solution: user_id + category IS a composite unique key.
+      // Let's generate a consistent ID based on the user and category!
+      const id = `${userId}_${category}`;
+      
+      const payload = { id, user_id: userId, category, budget_amount: amount };
+      console.log('[SAVE] Upsert payload:', payload);
+      
       const { error } = await supabase.from('category_budgets')
-        .upsert({ id, user_id: userId, category, budget_amount: amount }, { onConflict: 'user_id,category' });
+        .upsert(payload, { onConflict: 'user_id,category' });
+      
+      console.log('[SAVE] Upsert response error:', error);
       
       if (error) {
         console.error('setCategoryBudget:', error);
