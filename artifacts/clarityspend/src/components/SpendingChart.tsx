@@ -7,14 +7,17 @@ import { PieChart as PieIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, startOfMonth, isSameMonth, subMonths, addMonths, parseISO } from 'date-fns';
 
-const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+const CATEGORY_COLORS: Partial<Record<string, string>> = {
   Food:           '#34d399',
   Transportation: '#60a5fa',
   Shopping:       '#a78bfa',
   Bills:          '#fb923c',
   Entertainment:  '#f472b6',
   Other:          '#94a3b8',
+  // Legacy — kept so old 'Savings' expense rows from DB still render in chart
+  Savings:        '#10b981',
 };
+const FALLBACK_COLOR = '#94a3b8';
 
 interface ChartEntry {
   category: ExpenseCategory;
@@ -56,13 +59,13 @@ export function SpendingChart() {
 
   const grandTotal = Object.values(totals).reduce((s, v) => s + (v ?? 0), 0);
 
-  const data: ChartEntry[] = (Object.entries(totals) as [ExpenseCategory, number][])
+  const data: ChartEntry[] = (Object.entries(totals) as [string, number][])
     .sort((a, b) => b[1] - a[1])
     .map(([category, amount]) => ({
-      category,
+      category: category as ExpenseCategory,
       amount,
       percentage: grandTotal > 0 ? (amount / grandTotal) * 100 : 0,
-      color: CATEGORY_COLORS[category],
+      color: CATEGORY_COLORS[category] ?? FALLBACK_COLOR,
     }));
 
   return (
