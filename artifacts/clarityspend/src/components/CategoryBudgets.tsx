@@ -340,7 +340,11 @@ CREATE TABLE IF NOT EXISTS category_budgets (
 
 ALTER TABLE category_budgets ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage their own category_budgets" 
+CREATE POLICY "users can read own budgets" 
+  ON category_budgets FOR SELECT 
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "users can insert/update own budgets" 
   ON category_budgets FOR ALL 
   USING (auth.uid() = user_id);`
                 }</pre>

@@ -184,6 +184,11 @@ export const useSpendStore = create<SpendState>()(
 
   loadAll: async (userId) => {
     set({ isLoading: true, userId });
+    
+    // Explicitly await the session to ensure Supabase has the latest access token attached to Postgrest headers
+    // before unleashing parallel queries, preventing silent RLS block failures 
+    await supabase.auth.getSession();
+
     const [
       { data: expenses },
       { data: bnpl },
@@ -325,7 +330,7 @@ export const useSpendStore = create<SpendState>()(
       console.log('[SAVE] Upsert payload:', payload);
       
       const { error } = await supabase.from('category_budgets')
-        .upsert(payload, { onConflict: 'user_id,category' });
+        .upsert(payload, { onConflict: 'id' });
       
       console.log('[SAVE] Upsert response error:', error);
       
