@@ -122,12 +122,6 @@ function CategoryRow({
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Spent: <span className={`font-semibold ${isOver ? 'text-red-700' : 'text-foreground'}`}>{formatRM(spent)}</span>
-              {hasBudget && (
-                <span className="ml-1 text-muted-foreground">of {formatRM(budget)}</span>
-              )}
-            </p>
           </div>
 
           {/* Actions */}
@@ -157,7 +151,21 @@ function CategoryRow({
 
         {/* Progress bar — only if budget is set */}
         {hasBudget && (
-          <div>
+          <div className="mt-1">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                <span className="font-bold text-foreground">{formatRM(spent)}</span> of {formatRM(budget)} used 
+                <span className="opacity-50 mx-1">·</span> 
+                {isOver ? (
+                  <span className="text-red-600 font-bold">{formatRM(spent - budget)} over limit</span>
+                ) : (
+                  <span>{formatRM(budget - spent)} remaining</span>
+                )}
+              </span>
+              <span className={`text-[11px] font-bold tabular-nums ${pctColor}`}>
+                {pct.toFixed(0)}%
+              </span>
+            </div>
             <div className={`relative h-2 w-full rounded-full overflow-hidden transition-colors duration-300 ${trackColor}`}>
               <motion.div
                 animate={{ width: `${Math.min(pct, 100)}%` }}
@@ -165,27 +173,31 @@ function CategoryRow({
                 className={`h-full rounded-full transition-colors duration-300 ${progressColor}`}
               />
             </div>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-[11px] text-muted-foreground">
-                {isOver
-                  ? `${formatRM(spent - budget)} over`
-                  : `${formatRM(budget - spent)} left`}
-              </span>
-              <span className={`text-[11px] font-bold tabular-nums ${pctColor}`}>
-                {pct.toFixed(0)}%
-              </span>
-            </div>
           </div>
         )}
 
         {/* No budget placeholder */}
-        {!hasBudget && !editing && (
+        {!hasBudget && !editing && spent === 0 && (
           <button
             onClick={startEdit}
-            className="w-full mt-1 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+            className="w-full mt-2 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
           >
             + Set a budget for {category}
           </button>
+        )}
+
+        {!hasBudget && !editing && spent > 0 && (
+          <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between shadow-sm">
+            <p className="text-[11px] font-medium text-amber-800">
+              <span className="font-bold">{formatRM(spent)}</span> spent <span className="opacity-50 mx-1">·</span> <span className="opacity-90">No budget set yet</span>
+            </p>
+            <button
+              onClick={startEdit}
+              className="text-[10px] font-bold bg-amber-200 hover:bg-amber-300/80 text-amber-900 border border-amber-300/60 px-3 py-1.5 rounded-md transition-colors shadow-sm"
+            >
+              + Set a budget
+            </button>
+          </div>
         )}
 
         {/* Inline edit */}
