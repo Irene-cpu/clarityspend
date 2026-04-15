@@ -2,6 +2,7 @@ import React from 'react';
 import { useSpendStore, calcMonthlyIncome } from '@/store/use-spend-store';
 import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Wallet, TrendingDown, PiggyBank, AlertCircle,
   CheckCircle2, TrendingUp, AlertTriangle, CalendarDays,
@@ -167,6 +168,30 @@ export function DashboardStats() {
   // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
+
+      {incomeEntries.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4 bg-blue-50 border border-blue-200 rounded-2xl shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">💡</span>
+            <p className="text-sm font-semibold text-blue-900">
+              Add your income first to see accurate spending insights
+            </p>
+          </div>
+          <Button 
+            size="sm" 
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-sm shrink-0"
+            onClick={() => {
+              document.getElementById('income-tracker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            Add Income
+          </Button>
+        </motion.div>
+      )}
 
       {/* Row 1: Income & Commitments */}
       <div className="grid grid-cols-2 gap-4">

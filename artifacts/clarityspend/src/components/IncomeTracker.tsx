@@ -46,7 +46,7 @@ export function IncomeTracker() {
   };
 
   return (
-    <Card className="overflow-hidden" style={{ background: 'linear-gradient(135deg, #fffdf5 0%, #fffbeb 100%)' }}>
+    <Card id="income-tracker" className="overflow-hidden" style={{ background: 'linear-gradient(135deg, #fffdf5 0%, #fffbeb 100%)' }}>
       {/* Gold accent bar */}
       <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #b7882c, #D4AF37, #e8c84a, #D4AF37, #b7882c)' }} />
 
