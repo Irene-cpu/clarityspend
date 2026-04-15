@@ -4,7 +4,7 @@ import { formatRM } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TrendingUp, Trash2, Plus, RefreshCw, CalendarDays, Coins } from 'lucide-react';
+import { TrendingUp, Trash2, Plus, RefreshCw, CalendarDays, Coins, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday, parseISO } from 'date-fns';
 
@@ -127,40 +127,48 @@ export function IncomeTracker() {
           </div>
 
           {/* Recurring toggle */}
-          <button
-            type="button"
-            onClick={() => setRecurring((r) => !r)}
-            className="flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-200"
-            style={{
-              borderColor: recurring ? '#D4AF37' : '#e5e7eb',
-              backgroundColor: recurring ? '#fffbeb' : '#f9fafb',
-              color: recurring ? '#7a5a0a' : '#6b7280',
-            }}
-          >
-            <div
-              className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setRecurring((r) => !r)}
+              className="flex items-center gap-2.5 w-full px-4 py-3.5 rounded-xl border-2 text-sm font-bold transition-all duration-300"
               style={{
-                backgroundColor: recurring ? '#D4AF37' : 'transparent',
-                borderColor: recurring ? '#D4AF37' : '#d1d5db',
+                borderColor: recurring ? '#D4AF37' : '#e5e7eb',
+                backgroundColor: recurring ? '#fffbeb' : '#f9fafb',
+                color: recurring ? '#7a5a0a' : '#4b5563',
+                boxShadow: recurring ? '0 4px 20px -4px rgba(212, 175, 55, 0.3)' : 'none',
+                transform: recurring ? 'translateY(-1px)' : 'none',
               }}
             >
-              {recurring && (
-                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10">
-                  <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </div>
-            <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-            <span>Recurring monthly income</span>
-            {recurring && (
-              <span
-                className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: '#fde68a', color: '#7a5a0a' }}
+              <div
+                className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+                style={{
+                  backgroundColor: recurring ? '#D4AF37' : 'transparent',
+                  borderColor: recurring ? '#D4AF37' : '#9ca3af',
+                }}
               >
-                Every month
-              </span>
-            )}
-          </button>
+                {recurring && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10">
+                    <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              <RefreshCw className={`w-4 h-4 shrink-0 transition-transform duration-500 ${recurring ? 'rotate-180 text-[#b7882c]' : ''}`} />
+              <span>Recurring monthly income</span>
+              {recurring && (
+                <span
+                  className="ml-auto text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm"
+                  style={{ backgroundColor: '#fde68a', color: '#7a5a0a' }}
+                >
+                  Every month
+                </span>
+              )}
+            </button>
+            <p className="text-[11px] font-medium text-muted-foreground ml-1.5 flex items-center gap-1.5">
+              <span className="text-amber-500 text-sm leading-none">💡</span> 
+              Turn this on if you receive this income every month e.g. salary
+            </p>
+          </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -188,6 +196,23 @@ export function IncomeTracker() {
               </p>
 
               <div className="space-y-2">
+                {incomeEntries.length > 0 && totalMonthlyIncome === 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-4 px-4 py-3 rounded-xl border border-amber-300 bg-amber-50 shadow-sm"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-amber-800">No income this month</p>
+                        <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                          Your income entries are from a previous month — mark your salary as recurring or add this month's income.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
                 <AnimatePresence>
                   {sorted.map((entry) => {
                     const d = new Date(entry.date);
