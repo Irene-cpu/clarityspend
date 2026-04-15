@@ -3,7 +3,7 @@ import { BudgetSetup } from '@/components/BudgetSetup';
 import { DashboardStats } from '@/components/DashboardStats';
 import { AddExpense } from '@/components/AddExpense';
 import { ExpenseHistory } from '@/components/ExpenseHistory';
-import { DecisionAssistant } from '@/components/DecisionAssistant';
+import { InstalmentCalculator } from '@/components/InstalmentCalculator';
 import { SpendingChart } from '@/components/SpendingChart';
 import { BnplTracker } from '@/components/BnplTracker';
 import { MonthlyCommitments } from '@/components/MonthlyCommitments';
@@ -179,7 +179,7 @@ export default function Home() {
                 <SavingsGoals />
               </section>
 
-              <DecisionAssistant />
+              <InstalmentCalculator />
             </div>
             <div className="lg:col-span-5">
               <ExpenseHistory />
