@@ -242,7 +242,7 @@ export function BnplTracker() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 12, height: 0, marginBottom: 0 }}
                         transition={{ duration: 0.22 }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 ${
+                        className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 overflow-hidden ${
                           isBeingEdited
                             ? 'bg-amber-50 border-amber-300'
                             : paid
@@ -250,68 +250,76 @@ export function BnplTracker() {
                             : 'bg-slate-50 border-slate-100'
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                          isBeingEdited ? 'bg-amber-100 text-amber-600'
-                          : paid ? 'bg-emerald-100 text-emerald-600'
-                          : 'bg-sky-100 text-sky-600'
-                        }`}>
-                          {paid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center sm:flex-wrap">
-                            <p className={`text-sm font-semibold whitespace-normal leading-tight min-w-[120px] ${paid ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                              {item.name}
-                            </p>
-                            {paid && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-200 text-emerald-800 shrink-0">
-                                Paid this month
-                              </span>
-                            )}
+                        <div className="flex items-start sm:items-center gap-3 w-full">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${
+                            isBeingEdited ? 'bg-amber-100 text-amber-600'
+                            : paid ? 'bg-emerald-100 text-emerald-600'
+                            : 'bg-sky-100 text-sky-600'
+                          }`}>
+                            {paid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                            {item.dueDate
-                              ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(item.dueDate), 'd MMM yyyy')} · {item.installments} months</>
-                              : `${formatRM(item.totalAmount)} total · ${item.installments} months`
-                            }
-                          </p>
+                          <div className="flex-1 min-w-0 flex flex-row items-start justify-between gap-2">
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`text-sm font-semibold whitespace-normal leading-tight ${paid ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                  {item.name}
+                                </p>
+                                {paid && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-200 text-emerald-800 shrink-0">
+                                    Paid
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                {item.dueDate
+                                  ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(item.dueDate), 'd MMM yyyy')} · {item.installments} mo</>
+                                  : `${formatRM(item.totalAmount)} total · ${item.installments} mo`
+                                }
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0 mt-0.5 sm:mt-0">
+                              <p className={`text-sm font-bold tabular-nums ${paid ? 'text-muted-foreground' : 'text-sky-700'}`}>
+                                {formatRM(item.monthlyPayment)}
+                                <span className="text-xs font-normal text-muted-foreground hidden sm:inline">/mo</span>
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className={`text-sm font-bold tabular-nums ${paid ? 'text-muted-foreground' : 'text-sky-700'}`}>
-                            {formatRM(item.monthlyPayment)}
-                            <span className="text-xs font-normal text-muted-foreground">/mo</span>
-                          </p>
+
+                        {/* Actions wrapper */}
+                        <div className="flex items-center justify-end sm:shrink-0 gap-1 mt-1 sm:mt-0 ml-11 sm:ml-0">
+                          {/* Mark as paid / undo */}
+                          <button
+                            onClick={() => toggleBnplPaid(item.id)}
+                            aria-label={paid ? 'Undo paid' : 'Mark as paid'}
+                            title={paid ? 'Undo paid' : 'Mark as paid'}
+                            className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                              paid
+                                ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'
+                                : 'text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                          >
+                            {paid ? <RotateCcw className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => startEdit(item.id)}
+                            aria-label="Edit plan"
+                            className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                              isBeingEdited
+                                ? 'bg-amber-200 text-amber-700'
+                                : 'text-muted-foreground hover:text-amber-600 hover:bg-amber-50'
+                            }`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => removeBnplItem(item.id)}
+                            aria-label="Delete plan"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        {/* Mark as paid / undo */}
-                        <button
-                          onClick={() => toggleBnplPaid(item.id)}
-                          aria-label={paid ? 'Undo paid' : 'Mark as paid'}
-                          title={paid ? 'Undo paid' : 'Mark as paid'}
-                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
-                            paid
-                              ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'
-                              : 'text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50'
-                          }`}
-                        >
-                          {paid ? <RotateCcw className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => startEdit(item.id)}
-                          aria-label="Edit plan"
-                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
-                            isBeingEdited
-                              ? 'bg-amber-200 text-amber-700'
-                              : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-50'
-                          }`}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => removeBnplItem(item.id)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                          aria-label="Remove plan"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </motion.div>
                     );
                   })}

@@ -39,8 +39,8 @@ function StatCard({
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors duration-500 ${s.icon}`}>
             {icon}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide transition-colors duration-500 ${s.subtext}`}>{label}</p>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p className={`text-[9px] sm:text-[10px] md:text-xs font-semibold normal-case sm:uppercase tracking-wide transition-colors duration-500 overflow-hidden text-ellipsis whitespace-nowrap ${s.subtext}`}>{label}</p>
             <AnimatePresence mode="wait">
               <motion.h4
                 key={value}
@@ -48,7 +48,7 @@ function StatCard({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={{ duration: 0.2 }}
-                className={`text-lg sm:text-2xl font-bold mt-0.5 leading-tight transition-colors duration-500 ${s.value}`}
+                className={`text-[15px] sm:text-xl md:text-2xl font-bold mt-0.5 leading-tight transition-colors duration-500 overflow-hidden text-ellipsis whitespace-nowrap ${s.value}`}
               >
                 {value}
               </motion.h4>
