@@ -142,7 +142,7 @@ export function DashboardStats() {
   if (!hasIncome && budget === null) {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
           <StatCard icon={<TrendingDown className="w-5 h-5" />} label="Spent This Month" value={formatRM(totalSpent)}
             subtext={monthExpenses.length === 0 ? 'No expenses this month' : `Across ${monthExpenses.length} ${monthExpenses.length === 1 ? 'expense' : 'expenses'}`}
             colorScheme="amber" delay={0} />
@@ -194,7 +194,7 @@ export function DashboardStats() {
       )}
 
       {/* Row 1: Income & Commitments */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
         <StatCard
           icon={<TrendingUp className="w-5 h-5" />}
           label="Monthly Income"
@@ -231,7 +231,7 @@ export function DashboardStats() {
       </motion.div>
 
       {/* Row 2: Free to Spend & Remaining Money */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
         <StatCard
           icon={<Wallet className="w-5 h-5" />}
           label="Free to Spend"

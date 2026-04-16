@@ -14,8 +14,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Trash2, Receipt, ReceiptText, Users, Heart, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, isToday, startOfMonth, subMonths, addMonths, isSameMonth, parseISO } from 'date-fns';
+import { Trash2, Receipt, ReceiptText, Users, Heart, Pencil, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { format, isToday, isYesterday, startOfMonth, subMonths, addMonths, isSameMonth, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORY_STYLES_MAP: Partial<Record<string, { badge: string; dot: string }>> = {
@@ -54,6 +54,36 @@ export function ExpenseHistory() {
   const handleEdit = (id: string) => {
     setEditingExpenseId(id);
     document.getElementById('add-expense-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const groupedExpensesList = React.useMemo(() => {
+    const map = new Map<string, typeof monthExpenses>();
+    for (const e of monthExpenses) {
+      const key = e.date.substring(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
+    return sortedKeys.map((k, index) => {
+      const dateObj = parseISO(k);
+      const dailyTotal = map.get(k)!.reduce((sum, exp) => sum + (exp.userShare ?? exp.amount), 0);
+      return { 
+        dateKey: k,
+        dateObj,
+        expenses: map.get(k)!, 
+        index,
+        dailyTotal 
+      };
+    });
+  }, [monthExpenses]);
+
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const toggleCollapse = (dateKey: string, index: number) => {
+    setCollapsedDates(prev => {
+      const isCurrentlyExpanded = prev[dateKey] !== undefined ? !prev[dateKey] : index < 2;
+      return { ...prev, [dateKey]: isCurrentlyExpanded }; // We set it to true (collapsed) if it was currently expanded
+    });
   };
 
   return (
@@ -164,119 +194,154 @@ export function ExpenseHistory() {
         )}
 
         {/* List — filtered to viewed month, sorted newest first */}
-        {monthExpenses.length > 0 && (
-          <ul className="divide-y divide-border">
-            <AnimatePresence initial={false}>
-              {monthExpenses.map((expense, index) => {
-                const style       = getCategoryStyle(expense.category);
-                const expenseDate = new Date(expense.date);
-                const showTime    = isToday(expenseDate);
-                const isSplit     = expense.paymentType === 'SplitBill';
-                const isTreat     = expense.paymentType === 'Treat';
-                const displayAmt  = expense.userShare ?? expense.amount;
-                const isBeingEdited = editingExpenseId === expense.id;
-
-                return (
-                  <motion.li
-                    key={expense.id}
-                    initial={{ opacity: 0, x: 12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -12, height: 0 }}
-                    transition={{ duration: 0.22, delay: index === 0 ? 0 : 0 }}
-                    className={`flex items-start gap-3 px-5 py-3.5 transition-colors duration-150 ${
-                      isBeingEdited
-                        ? 'bg-amber-50 border-l-2 border-amber-400'
-                        : 'hover:bg-slate-50'
-                    }`}
+        {groupedExpensesList.length > 0 && (
+          <div className="divide-y divide-border">
+            {groupedExpensesList.map((group) => {
+              const isCollapsed = collapsedDates[group.dateKey] !== undefined 
+                ? collapsedDates[group.dateKey] 
+                : group.index >= 2;
+                
+              const label = isToday(group.dateObj) ? 'Today' 
+                          : isYesterday(group.dateObj) ? 'Yesterday' 
+                          : format(group.dateObj, 'MMM d');
+              
+              return (
+                <div key={group.dateKey} className="flex flex-col">
+                  {/* Header */}
+                  <button 
+                    onClick={() => toggleCollapse(group.dateKey, group.index)}
+                    className="flex flex-row items-center justify-between w-full px-5 py-3 bg-slate-50/50 hover:bg-slate-100/50 transition-colors cursor-pointer text-left group"
                   >
-                    {/* Color dot */}
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${style.dot}`} />
-
-                    {/* Name + date + tags */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground truncate leading-snug">
-                          {expense.name}
-                        </p>
-                        {isSplit && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-200 shrink-0">
-                            <Users className="w-2.5 h-2.5" />
-                            Split {expense.splitPeople}
-                          </span>
-                        )}
-                        {isTreat && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700 border border-pink-200 shrink-0">
-                            <Heart className="w-2.5 h-2.5" />
-                            Treat
-                          </span>
-                        )}
-                        {isBeingEdited && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
-                            <Pencil className="w-2.5 h-2.5" />
-                            Editing
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(expenseDate, 'MMM d, yyyy')}
-                        {showTime && (
-                          <>
-                            <span className="mx-1 opacity-40">·</span>
-                            {format(expenseDate, 'h:mm a')}
-                          </>
-                        )}
-                        {isSplit && expense.splitPeople && (
-                          <>
-                            <span className="mx-1 opacity-40">·</span>
-                            Full: {formatRM(expense.amount)}
-                          </>
-                        )}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-700">{label}</span>
+                      {isCollapsed ? <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" /> : <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />}
                     </div>
+                    <span className="text-sm font-bold text-slate-700">{formatRM(group.dailyTotal)}</span>
+                  </button>
+                  
+                  {/* Expenses List */}
+                  <AnimatePresence initial={false}>
+                    {!isCollapsed && (
+                      <motion.ul 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="divide-y divide-border overflow-hidden"
+                      >
+                        {group.expenses.map((expense, index) => {
+                          const style       = getCategoryStyle(expense.category);
+                          const expenseDate = new Date(expense.date);
+                          const showTime    = isToday(expenseDate);
+                          const isSplit     = expense.paymentType === 'SplitBill';
+                          const isTreat     = expense.paymentType === 'Treat';
+                          const displayAmt  = expense.userShare ?? expense.amount;
+                          const isBeingEdited = editingExpenseId === expense.id;
 
-                    {/* Category badge */}
-                    <span className={`hidden sm:inline-flex text-xs font-medium px-2 py-0.5 rounded-md border shrink-0 mt-0.5 ${style.badge}`}>
-                      {expense.category}
-                    </span>
+                          return (
+                            <motion.li
+                              key={expense.id}
+                              initial={{ opacity: 0, x: 12 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -12, height: 0 }}
+                              transition={{ duration: 0.22, delay: index === 0 ? 0 : 0 }}
+                              className={`flex items-start gap-3 px-5 py-3.5 transition-colors duration-150 ${
+                                isBeingEdited
+                                  ? 'bg-amber-50 border-l-2 border-amber-400'
+                                  : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              {/* Color dot */}
+                              <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${style.dot}`} />
 
-                    {/* Amount */}
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-foreground tabular-nums">
-                        {formatRM(displayAmt)}
-                      </p>
-                      {isSplit && (
-                        <p className="text-[10px] text-muted-foreground tabular-nums">
-                          your share
-                        </p>
-                      )}
-                    </div>
+                              {/* Name + date + tags */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-semibold text-foreground truncate leading-snug">
+                                    {expense.name}
+                                  </p>
+                                  {isSplit && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-200 shrink-0">
+                                      <Users className="w-2.5 h-2.5" />
+                                      Split {expense.splitPeople}
+                                    </span>
+                                  )}
+                                  {isTreat && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700 border border-pink-200 shrink-0">
+                                      <Heart className="w-2.5 h-2.5" />
+                                      Treat
+                                    </span>
+                                  )}
+                                  {isBeingEdited && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+                                      <Pencil className="w-2.5 h-2.5" />
+                                      Editing
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {showTime ? (
+                                    format(expenseDate, 'h:mm a')
+                                  ) : (
+                                    format(expenseDate, 'MMM d')
+                                  )}
+                                  {isSplit && expense.splitPeople && (
+                                    <>
+                                      <span className="mx-1 opacity-40">·</span>
+                                      Full: {formatRM(expense.amount)}
+                                    </>
+                                  )}
+                                </p>
+                              </div>
 
-                    {/* Edit */}
-                    <button
-                      onClick={() => handleEdit(expense.id)}
-                      aria-label={`Edit ${expense.name}`}
-                      className={`w-8 h-8 shrink-0 flex items-center justify-center rounded-lg transition-colors duration-150 mt-0.5 ${
-                        isBeingEdited
-                          ? 'bg-amber-200 text-amber-700'
-                          : 'text-muted-foreground hover:bg-amber-50 hover:text-amber-500'
-                      }`}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
+                              {/* Category badge */}
+                              <span className={`hidden sm:inline-flex text-xs font-medium px-2 py-0.5 rounded-md border shrink-0 mt-0.5 ${style.badge}`}>
+                                {expense.category}
+                              </span>
 
-                    {/* Delete */}
-                    <button
-                      onClick={() => removeExpense(expense.id)}
-                      aria-label={`Delete ${expense.name}`}
-                      className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors duration-150 mt-0.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </motion.li>
-                );
-              })}
-            </AnimatePresence>
-          </ul>
+                              {/* Amount */}
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-bold text-foreground tabular-nums">
+                                  {formatRM(displayAmt)}
+                                </p>
+                                {isSplit && (
+                                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                                    your share
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Edit */}
+                              <button
+                                onClick={() => handleEdit(expense.id)}
+                                aria-label={`Edit ${expense.name}`}
+                                className={`w-8 h-8 shrink-0 flex items-center justify-center rounded-lg transition-colors duration-150 mt-0.5 ml-1 ${
+                                  isBeingEdited
+                                    ? 'bg-amber-200 text-amber-700'
+                                    : 'text-muted-foreground hover:bg-amber-50 hover:text-amber-500'
+                                }`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => removeExpense(expense.id)}
+                                aria-label={`Delete ${expense.name}`}
+                                className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors duration-150 mt-0.5"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </motion.li>
+                          );
+                        })}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
