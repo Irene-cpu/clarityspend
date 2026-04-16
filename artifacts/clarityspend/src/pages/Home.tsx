@@ -62,14 +62,15 @@ function StickyNav() {
                 key={id}
                 onClick={() => scrollTo(id)}
                 className={[
-                  'flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-150 flex-shrink-0',
+                  'flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 flex-shrink-0',
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                 ].join(' ')}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden min-[380px]:inline">{label}</span>
+                <span className="inline min-[380px]:hidden">{label.substring(0,3)}</span>
               </button>
             );
           })}

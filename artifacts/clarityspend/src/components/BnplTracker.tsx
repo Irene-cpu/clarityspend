@@ -258,8 +258,8 @@ export function BnplTracker() {
                           {paid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`text-sm font-semibold truncate ${paid ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                          <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center sm:flex-wrap">
+                            <p className={`text-sm font-semibold whitespace-normal leading-tight min-w-[120px] ${paid ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                               {item.name}
                             </p>
                             {paid && (

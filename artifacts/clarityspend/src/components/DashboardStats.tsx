@@ -40,7 +40,7 @@ function StatCard({
             {icon}
           </div>
           <div className="min-w-0 flex-1">
-            <p className={`text-xs font-semibold uppercase tracking-wide transition-colors duration-500 ${s.subtext}`}>{label}</p>
+            <p className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide transition-colors duration-500 ${s.subtext}`}>{label}</p>
             <AnimatePresence mode="wait">
               <motion.h4
                 key={value}
