@@ -264,7 +264,7 @@ export function DashboardStats() {
       </div>
 
       {/* Row 3: Total Spent & Today */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
         <StatCard
           icon={<TrendingDown className="w-5 h-5" />}
           label="Spent This Month"

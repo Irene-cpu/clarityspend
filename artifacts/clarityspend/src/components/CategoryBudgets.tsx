@@ -155,12 +155,12 @@ function CategoryRow({
         {hasBudget && (
           <div className="mt-2">
             <div className="flex items-center justify-between gap-x-2 flex-wrap mb-1.5 min-w-0">
-              <span className="text-[11px] font-semibold text-foreground/80 flex-1 min-w-0 truncate">
+              <span className="text-[11px] font-semibold text-foreground/80 flex-1 min-w-0">
                 <span className="font-bold text-foreground">{formatRM(spent)}</span> of {formatRM(budget)} used 
                 <span className="opacity-50 mx-1.5 hidden sm:inline">·</span>
                 <span className="sm:hidden relative -top-0.5 opacity-50 mx-1">/</span>
                 {isOver ? (
-                  <span className="text-red-600 font-bold">{formatRM(spent - budget)} over limit</span>
+                  <span className="text-red-600 font-bold">{formatRM(spent - budget)} over</span>
                 ) : (
                   <span className="font-medium">{formatRM(budget - spent)} remaining</span>
                 )}

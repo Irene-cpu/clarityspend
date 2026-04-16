@@ -257,7 +257,7 @@ export function ExpenseHistory() {
                               {/* Name + date + tags */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className="text-sm font-semibold text-foreground truncate leading-snug">
+                                  <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
                                     {expense.name}
                                   </p>
                                   {isSplit && (
