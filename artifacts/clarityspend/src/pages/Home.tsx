@@ -12,8 +12,8 @@ import { IncomeTracker } from '@/components/IncomeTracker';
 import { SavingsGoals } from '@/components/SavingsGoals';
 import { CategoryBudgets } from '@/components/CategoryBudgets';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSpendStore } from '@/store/use-spend-store';
-import { Sparkles, LogOut, LayoutDashboard, Receipt, CalendarCheck, Wallet, PiggyBank } from 'lucide-react';
+import { useSpendStore, calcMonthlyIncome } from '@/store/use-spend-store';
+import { Sparkles, LogOut, LayoutDashboard, Receipt, CalendarCheck, Wallet, PiggyBank, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
@@ -82,6 +82,16 @@ function StickyNav() {
 export default function Home() {
   const { user, signOut } = useAuth();
   const testForceReset = useSpendStore(s => s.__testForceReset);
+  const incomeEntries = useSpendStore(s => s.incomeEntries);
+  const totalMonthlyIncome = calcMonthlyIncome(incomeEntries);
+  
+  const scrollToIncome = () => {
+    const el = document.getElementById('section-income');
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 56 - 16;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -141,6 +151,39 @@ export default function Home() {
       <StickyNav />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 -mt-2 relative z-30 space-y-8 pt-6">
+        
+        {/* Missing Income Global Warning */}
+        {totalMonthlyIncome === 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full relative overflow-hidden bg-blue-600 rounded-2xl shadow-md border border-blue-700/50"
+          >
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-sm border border-white/20 shadow-sm">
+                  <Wallet className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-lg leading-tight tracking-tight shadow-sm">
+                    👋 Start here — add your monthly income to see accurate spending insights
+                  </h3>
+                  <p className="text-blue-100 text-sm mt-1 max-w-xl font-medium leading-relaxed drop-shadow-sm">
+                    Without income logged, ClaritySpend can't calculate your flexible budget or show if you are overspending.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={scrollToIncome}
+                className="shrink-0 w-full sm:w-auto mt-2 sm:mt-0 px-6 py-2.5 bg-white text-blue-700 hover:bg-blue-50 font-bold rounded-xl shadow-lg border border-white/40 transition-all hover:-translate-y-0.5 whitespace-nowrap flex items-center justify-center gap-2 group ring-2 ring-white/20"
+              >
+                Add Income
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Budget Setup */}
         <BudgetSetup />
 
