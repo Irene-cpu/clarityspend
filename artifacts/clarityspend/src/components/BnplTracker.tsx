@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSpendStore } from '@/store/use-spend-store';
-import { formatRM } from '@/lib/utils';
+import { formatRM, getRollingDueDate } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -272,7 +272,7 @@ export function BnplTracker() {
                               </div>
                               <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                                 {item.dueDate
-                                  ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(item.dueDate), 'd MMM yyyy')} · {item.installments} mo</>
+                                  ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(getRollingDueDate(item.dueDate), 'd MMM yyyy')} · {item.installments} mo</>
                                   : `${formatRM(item.totalAmount)} total · ${item.installments} mo`
                                 }
                               </p>

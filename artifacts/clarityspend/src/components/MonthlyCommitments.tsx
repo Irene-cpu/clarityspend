@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSpendStore } from '@/store/use-spend-store';
-import { formatRM } from '@/lib/utils';
+import { formatRM, getRollingDueDate } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -280,7 +280,7 @@ export function MonthlyCommitments() {
                             {isPaid
                               ? <><CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" /><span className="text-green-600">Paid {format(new Date(c.paidAt!), 'd MMM')}</span></>
                               : c.dueDate
-                              ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(parseISO(c.dueDate), 'd MMM yyyy')}</>
+                              ? <><CalendarDays className="w-3 h-3 shrink-0" />{format(getRollingDueDate(c.dueDate), 'd MMM yyyy')}</>
                               : 'No due date set'
                             }
                           </p>
